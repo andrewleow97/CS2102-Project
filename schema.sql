@@ -43,13 +43,13 @@ CREATE TABLE MeetingRooms (
     floor INTEGER,
     rname TEXT NOT NULL,
     did INTEGER NOT NULL,
-    PRIMARY KEY (room_number,floor),
+    PRIMARY KEY (room_number, floor),
     FOREIGN KEY (did) REFERENCES Departments (did)
 );
 
 CREATE TABLE Sessions (
     date DATE,
-    time TIMESTAMP,
+    time TIME,
     room INTEGER,
     floor INTEGER,
     booker_id INTEGER NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE Sessions (
 CREATE TABLE Joins (
     eid INTEGER,
     date DATE,
-    time TIMESTAMP,
+    time TIME,
     room INTEGER NOT NULL,
     floor INTEGER NOT NULL,
     PRIMARY KEY (eid, date, time),
@@ -80,9 +80,8 @@ CREATE TABLE HealthDeclaration (
     FOREIGN KEY (eid) REFERENCES Employees (eid) ON DELETE CASCADE
 );
 
-
 CREATE TABLE Updates (
-    date INTEGER,
+    date DATE,
     new_capacity INTEGER,
     room_number INTEGER,
     floor INTEGER,

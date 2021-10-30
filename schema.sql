@@ -1,0 +1,1 @@
+-- SCHEMA SQL to create database schema

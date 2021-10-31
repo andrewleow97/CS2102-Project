@@ -186,7 +186,6 @@ CREATE OR REPLACE FUNCTION non_compliance(IN start_date DATE, IN end_date DATE)
 RETURNS TABLE(EmployeeId INTEGER, Number_of_Days INTEGER) AS $$
 
 DECLARE curr_date DATE := start_date;
--- DECLARE 
 
 BEGIN
     -- Creating temporary table to hold employee id values
@@ -211,5 +210,16 @@ BEGIN
     
     -- Selects employee ID and number of days they have not declared temperature
     RETURN QUERY SELECT eid AS EmployeeId, COUNT(*)::INTEGER AS Number_of_Days FROM non_compliant_list GROUP BY eid ORDER BY Number_of_Days DESC, eid ASC;
+
+END;
+
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION view_booking_report(IN start_date DATE, IN eid INTEGER)
+RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, approved BOOLEAN) AS $$
+
+BEGIN
+    RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.approver_id IS NOT NULL FROM Sessions S WHERE S.date >= start_date AND eid = S.booker_id
+    ORDER BY S.date ASC, S.time ASC;
 END;
 $$ LANGUAGE plpgsql;

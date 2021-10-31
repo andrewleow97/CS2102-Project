@@ -127,6 +127,8 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Core Functions
+
 -- Search Room
 CREATE OR REPLACE FUNCTION search_room(search_capacity INT, session_date DATE, start_hour INT, end_hour INT)
 RETURNS TABLE(floor_number INT, room_number INT, department_id INT, room_capacity INT) AS $$
@@ -174,6 +176,28 @@ BEGIN
         END LOOP;
 
     END IF;
+END
+$$ LANGUAGE plpgsql;
+
+-- Unbook Room
+-- 1. If this is not the employee doing the booking, the employee is not allowed to remove booking
+CREATE OR REPLACE PROCEDURE unbook_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, unbooker_id INT)
+AS $$
+DECLARE booker_id INTEGER := 0;
+BEGIN
+    for counter in start_hour..(end_hour-1) LOOP
+        SELECT S.booker_id INTO booker_id
+        FROM Sessions S
+        WHERE S.date = session_date AND S.floor = floor_number
+              AND S.room = room_number AND S.time = counter;
+        
+        -- If unbooker_id <> booker_id, continue searching for bookings with same id for removal.
+        IF unbooker_id = booker_id THEN
+            DELETE FROM Sessions S
+            WHERE S.date = session_date AND S.floor = floor_number
+                  AND S.room = room_number AND S.time = counter;
+        END IF;
+    END LOOP;
 END
 $$ LANGUAGE plpgsql;
 

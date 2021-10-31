@@ -50,6 +50,21 @@ BEGIN
         INSERT INTO Updates VALUES (date, room_capacity, room, floor, manager_id);
     ELSE
         RAISE EXCEPTION 'Manager department % does not match room department %', man_did, room_did;
+    END IF;
+
+    -- Cancel all future meetings beyond date where participants > capacity regardless of approval status
+
+    WITH ExceedCap AS (SELECT S.room, S.floor, S.date, S.time, COUNT(*)
+    FROM Sessions S JOIN Joins J 
+    ON S.date = J.date AND S.time = J.time AND S.room = J.room AND S.floor = J.floor
+    WHERE S.date > date -- Change this if want to include same day meetings
+    GROUP BY (S.room, S.floor, S.date, S.time)
+    HAVING COUNT(*) > room_capacity)
+
+    DELETE FROM Sessions S 
+    WHERE S.room IN (SELECT E.room FROM ExceedCap E) 
+    AND S.floor IN (SELECT E.floor FROM ExceedCap E)
+    AND S.date IN (SELECT E.date FROM ExceedCap E);
 
 END
 $$ LANGUAGE plpgsql;
@@ -93,6 +108,7 @@ AS $$
 DECLARE eid_exist BOOLEAN := true;
 
 BEGIN
+    -- 
     SELECT EXISTS (SELECT eid FROM Employees E WHERE E.eid = emp_id) INTO eid_exist;
 
     IF eid_exist = false THEN 
@@ -103,6 +119,11 @@ BEGIN
         SET resigned_date = date
         WHERE E.eid = emp_id;
     END IF;
+
+    -- Remove this employee from all sessions beyong their resignation date, regardless of session approval status
+    
+    DELETE FROM Joins J WHERE J.eid = eid AND J.date > date::DATE;
+
 END
 $$ LANGUAGE plpgsql;
 
@@ -154,4 +175,25 @@ BEGIN
 
     END IF;
 END
+$$ LANGUAGE plpgsql;
+
+
+-- Admin Functions
+
+-- Non-Compliance
+/* non_compliance: This routine is used to find all employees that do not comply with the daily health declaration (i.e.,
+-- to snitch). The inputs to the routine should minimally include:
+-- Start date
+-- End date
+-- The routine returns a table containing all employee ID that do not declare their temperature at least once from the
+-- start date (inclusive) to the end date (inclusive). In other words, [start date, end date].
+-- The table returned should minimally include the following columns:
+-- Employee ID
+-- Number of days
+-- Number of days is the number of days the employee did not declare their temperature within the given period. 
+The table should be sorted in descending order of number of days. */
+
+CREATE OR REPLACE FUNCTION non_compliance(IN start_date DATE, IN end_date DATE)
+RETURNS QUERY AS $$ 
+
 $$ LANGUAGE plpgsql;

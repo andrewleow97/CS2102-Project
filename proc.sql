@@ -37,12 +37,9 @@ $$ LANGUAGE plpgsql;
 -- Change Meeting Room Capacity
 CREATE OR REPLACE PROCEDURE change_capacity (floor INTEGER, room INTEGER, room_capacity INTEGER, date DATE, manager_id INTEGER)
 AS $$
-
 DECLARE man_did INTEGER := 0;
 DECLARE room_did INTEGER := 0;
-
 BEGIN
-
     SELECT E.did INTO man_did FROM Employees E WHERE E.eid = manager_id;
     SELECT M.did INTO room_did FROM MeetingRooms M WHERE M.floor = floor AND M.room = room;
 
@@ -65,18 +62,15 @@ BEGIN
     WHERE S.room IN (SELECT E.room FROM ExceedCap E) 
     AND S.floor IN (SELECT E.floor FROM ExceedCap E)
     AND S.date IN (SELECT E.date FROM ExceedCap E);
-
 END
 $$ LANGUAGE plpgsql;
 
 -- Add Employee
 CREATE OR REPLACE PROCEDURE add_employee (did INTEGER, ename TEXT, home_phone INTEGER, mobile_phone INTEGER, office_phone INTEGER, designation TEXT)
 AS $$
-
 DECLARE new_eid INTEGER := 0;
 DECLARE email TEXT := NULL;
 DECLARE resigned_date DATE := NULL;
-
 BEGIN
     SELECT eid INTO new_eid FROM Employees ORDER BY eid DESC LIMIT 1;
     new_eid := new_eid + 1;
@@ -97,23 +91,18 @@ BEGIN
         INSERT INTO Manager VALUES (new_eid); INSERT INTO Booker VALUES (new_eid);
 
     END IF;
-
 END
 $$ LANGUAGE plpgsql;
 
 -- Remove Employee (only set resigned date, don't remove record)
 CREATE OR REPLACE PROCEDURE remove_employee (emp_id INTEGER, date DATE)
 AS $$
-
 DECLARE eid_exist BOOLEAN := true;
-
 BEGIN
-    -- 
     SELECT EXISTS (SELECT eid FROM Employees E WHERE E.eid = emp_id) INTO eid_exist;
 
     IF eid_exist = false THEN 
         RAISE EXCEPTION 'Employee % does not exist', emp_id; 
-
     ELSE 
         UPDATE Employees E
         SET resigned_date = date
@@ -121,11 +110,10 @@ BEGIN
     END IF;
 
     -- Remove this employee from all sessions beyong their resignation date, regardless of session approval status
-    
     DELETE FROM Joins J WHERE J.eid = eid AND J.date > date::DATE;
-
 END
 $$ LANGUAGE plpgsql;
+
 
 -- Core Functions
 
@@ -150,6 +138,7 @@ BEGIN
     ORDER BY R.capacity;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- Book Room
 -- 1. Only a senior employee or manager can book a room.
@@ -178,6 +167,7 @@ BEGIN
     END IF;
 END
 $$ LANGUAGE plpgsql;
+
 
 -- Unbook Room
 -- 1. If this is not the employee doing the booking, the employee is not allowed to remove booking
@@ -208,9 +198,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION non_compliance(IN start_date DATE, IN end_date DATE)
 RETURNS TABLE(EmployeeId INTEGER, Number_of_Days INTEGER) AS $$
-
 DECLARE curr_date DATE := start_date;
-
 BEGIN
     -- Creating temporary table to hold employee id values
     DROP TABLE IF EXISTS non_compliant_list;
@@ -219,7 +207,8 @@ BEGIN
     );
 
     -- Date checking if valid
-    IF end_date < start_date THEN RAISE EXCEPTION 'End date % is before start date %', end_date, start_date;
+    IF end_date < start_date THEN 
+        RAISE EXCEPTION 'End date % is before start date %', end_date, start_date;
     END IF;
 
     WHILE curr_date <= end_date LOOP -- dates inclusive
@@ -233,40 +222,63 @@ BEGIN
     END LOOP;
     
     -- Selects employee ID and number of days they have not declared temperature
-    RETURN QUERY SELECT eid AS EmployeeId, COUNT(*)::INTEGER AS Number_of_Days FROM non_compliant_list GROUP BY eid ORDER BY Number_of_Days DESC, eid ASC;
-
+    RETURN QUERY SELECT eid AS EmployeeId, COUNT(*)::INTEGER AS Number_of_Days
+    FROM non_compliant_list
+    GROUP BY eid
+    ORDER BY Number_of_Days DESC, eid ASC;
 END;
-
 $$ LANGUAGE plpgsql;
 
--- View Booking Report
 
+-- View Booking Report
 CREATE OR REPLACE FUNCTION view_booking_report(IN start_date DATE, IN eid INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, approved BOOLEAN) AS $$
-
 BEGIN
-    RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.approver_id IS NOT NULL FROM Sessions S WHERE S.date >= start_date AND eid = S.booker_id
+    RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.approver_id IS NOT NULL
+    FROM Sessions S
+    WHERE S.date >= start_date AND eid = S.booker_id
     ORDER BY S.date ASC, S.time ASC;
 END;
 $$ LANGUAGE plpgsql;
 
--- View Future Meetings
 
+-- View Future Meetings
 CREATE OR REPLACE FUNCTION view_future_meeting(IN start_date DATE, IN emp_id INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER) AS $$
-
 BEGIN
     RETURN QUERY SELECT S.floor, S.room, S.date, S.time 
     -- Check meetings where employee is attending
 	FROM Sessions S JOIN Joins J 
-		  ON S.date = J.date 
-		  AND S.time = J.time
-		  AND S.room = J.room 
-		  AND S.floor = J.floor 
-		  AND J.eid = emp_id
-          -- Check approved meeting and later start date
-		  WHERE S.approver_id IS NOT NULL AND S.date >= start_date 
-		  ORDER BY S.date ASC, S.time ASC;
+    ON S.date = J.date 
+       AND S.time = J.time
+       AND S.room = J.room 
+       AND S.floor = J.floor 
+       AND J.eid = emp_id
+    -- Check approved meeting and later start date
+    WHERE S.approver_id IS NOT NULL AND S.date >= start_date 
+    ORDER BY S.date ASC, S.time ASC;
 END;
+$$ LANGUAGE plpgsql;
 
+
+-- View Manager Report
+-- 1. If the employee ID does not belong to a manager, the routine returns an empty table.
+-- 2. Returns a table containing all meeting that are booked but not yet approved from the given start date onwards.
+-- 3. Return all meeting in the room with the same department as the manager
+-- 4. The table should be sorted in ascending order of date and start hour.
+CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, emp_id INTEGER)
+RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, employee_id INTEGER) AS $$
+BEGIN
+    IF NOT EXISTS (SELECT * FROM Manager WHERE eid = emp_id) THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.booker_id
+    FROM Sessions S JOIN Employees E
+    ON S.booker_id = E.eid
+    WHERE E.did = (SELECT did FROM Employees WHERE eid = emp_id)
+          AND S.approver_id IS NULL
+          AND S.date > start_date -- given start date onwards, inclusive?
+    ORDER BY S.date, S.time;
+END;
 $$ LANGUAGE plpgsql;

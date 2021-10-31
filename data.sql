@@ -101,7 +101,7 @@ dept 9 manager 25, 26 room 3-5
   ('2021-11-21', 9, 3, 5, 23, 26),
   ('2021-11-22', 14, 3, 3, 18, 27),
   ('2021-11-23', 11, 2, 2, 11, 28),
-  ('2021-12-25', 10, 3, 3, 15, null)
+  ('2021-11-25', 10, 3, 3, 15, null)
 ;
 
 INSERT INTO Joins (eid, date, time, room, floor) VALUES 
@@ -140,7 +140,7 @@ INSERT INTO Joins (eid, date, time, room, floor) VALUES
 
   (11, '2021-11-23', 11, 2, 2),
 
-  (15, '2021-12-25', 10, 3, 3)
+  (15, '2021-11-25', 10, 3, 3)
 ;
 
 INSERT INTO HealthDeclaration (eid, date, temperature, fever) VALUES 

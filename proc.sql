@@ -215,6 +215,8 @@ END;
 
 $$ LANGUAGE plpgsql;
 
+-- View Booking Report
+
 CREATE OR REPLACE FUNCTION view_booking_report(IN start_date DATE, IN eid INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, approved BOOLEAN) AS $$
 
@@ -222,4 +224,25 @@ BEGIN
     RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.approver_id IS NOT NULL FROM Sessions S WHERE S.date >= start_date AND eid = S.booker_id
     ORDER BY S.date ASC, S.time ASC;
 END;
+$$ LANGUAGE plpgsql;
+
+-- View Future Meetings
+
+CREATE OR REPLACE FUNCTION view_future_meeting(IN start_date DATE, IN emp_id INTEGER)
+RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER) AS $$
+
+BEGIN
+    RETURN QUERY SELECT S.floor, S.room, S.date, S.time 
+    -- Check meetings where employee is attending
+	FROM Sessions S JOIN Joins J 
+		  ON S.date = J.date 
+		  AND S.time = J.time
+		  AND S.room = J.room 
+		  AND S.floor = J.floor 
+		  AND J.eid = emp_id
+          -- Check approved meeting and later start date
+		  WHERE S.approver_id IS NOT NULL AND S.date >= start_date 
+		  ORDER BY S.date ASC, S.time ASC;
+END;
+
 $$ LANGUAGE plpgsql;

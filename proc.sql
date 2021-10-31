@@ -181,19 +181,35 @@ $$ LANGUAGE plpgsql;
 -- Admin Functions
 
 -- Non-Compliance
-/* non_compliance: This routine is used to find all employees that do not comply with the daily health declaration (i.e.,
--- to snitch). The inputs to the routine should minimally include:
--- Start date
--- End date
--- The routine returns a table containing all employee ID that do not declare their temperature at least once from the
--- start date (inclusive) to the end date (inclusive). In other words, [start date, end date].
--- The table returned should minimally include the following columns:
--- Employee ID
--- Number of days
--- Number of days is the number of days the employee did not declare their temperature within the given period. 
-The table should be sorted in descending order of number of days. */
 
 CREATE OR REPLACE FUNCTION non_compliance(IN start_date DATE, IN end_date DATE)
-RETURNS QUERY AS $$ 
+RETURNS TABLE(EmployeeId INTEGER, Number_of_Days INTEGER) AS $$
 
+DECLARE curr_date DATE := start_date;
+-- DECLARE 
+
+BEGIN
+    -- Creating temporary table to hold employee id values
+    DROP TABLE IF EXISTS non_compliant_list;
+    CREATE TEMPORARY TABLE non_compliant_list(
+        eid INTEGER
+    );
+
+    -- Date checking if valid
+    IF end_date < start_date THEN RAISE EXCEPTION 'End date % is before start date %', end_date, start_date;
+    END IF;
+
+    WHILE curr_date <= end_date LOOP -- dates inclusive
+        -- List of employees on this date that do not have a health declaration
+        WITH emp_list AS (SELECT DISTINCT E.eid FROM Employees E WHERE E.eid NOT IN (SELECT DISTINCT H.eid FROM HealthDeclaration H WHERE H.date = curr_date))
+        -- Insert into temporary table for counting days later
+        INSERT INTO non_compliant_list SELECT * FROM emp_list;
+
+        -- Advance loop
+        curr_date := curr_date + 1; 
+    END LOOP;
+    
+    -- Selects employee ID and number of days they have not declared temperature
+    RETURN QUERY SELECT eid AS EmployeeId, COUNT(*)::INTEGER AS Number_of_Days FROM non_compliant_list GROUP BY eid ORDER BY Number_of_Days DESC, eid ASC;
+END;
 $$ LANGUAGE plpgsql;

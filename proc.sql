@@ -50,7 +50,7 @@ BEGIN
         INSERT INTO Updates VALUES (date, room_capacity, room, floor, manager_id);
     ELSE
         RAISE EXCEPTION 'Manager department % does not match room department %', man_did, room_did;
-
+    END IF;
 END
 $$ LANGUAGE plpgsql;
 
@@ -103,5 +103,69 @@ BEGIN
         SET resigned_date = date
         WHERE E.eid = emp_id;
     END IF;
+END
+$$ LANGUAGE plpgsql;
+
+-- Add Health Declaration for an Employee
+CREATE OR REPLACE PROCEDURE declare_health (emp_id INTEGER, date DATE, temperature NUMERIC)
+AS $$
+
+DECLARE have_fever BOOLEAN := false; 
+
+BEGIN
+	IF temperature > 37.5 THEN have_fever := true;
+	END IF;
+    INSERT INTO HealthDeclaration VALUES (emp_id, date, temperature, have_fever);
+END
+$$ LANGUAGE plpgsql;
+
+-- Contact Tracing for an Employee
+CREATE OR REPLACE FUNCTION contact_tracing (IN emp_id INTEGER, IN curr_date DATE)
+RETURNS TABLE(close_contacts_eid INTEGER)
+AS $$
+
+DECLARE have_fever BOOLEAN := false; 
+
+BEGIN
+	SELECT EXISTS (SELECT 1 FROM HealthDeclaration h 
+				   WHERE h.eid = emp_id AND h.fever = 'true' AND h.date = curr_date) INTO have_fever;
+
+    IF have_fever = false THEN 
+        RAISE EXCEPTION 'Employee % does not have fever or did not make a health declaration on this date %.', emp_id, curr_date; 
+    ELSE 
+		-- Creating temporary table to hold close contact employee id values
+		DROP TABLE IF EXISTS close_contacts_list;
+		CREATE TEMPORARY TABLE close_contacts_list(
+			eid INTEGER
+		);
+		
+		INSERT INTO close_contacts_list SELECT DISTINCT j2.eid AS eid
+ 			FROM Joins j, Joins j2, Sessions s
+			WHERE j.date = s.date AND j.time = s.time
+			AND j.room = s.room AND j.floor = s.floor
+			AND j2.date = s.date AND j2.time = s.time
+			AND j2.room = s.room AND j2.floor = s.floor
+			AND j.eid <> j2.eid AND s.approver_id IS NOT NULL 
+			AND emp_id = j.eid AND s.date BETWEEN curr_date - 3 AND curr_date;
+			
+		-- Remove bookings where the booker has a fever, approved or not.
+		DELETE FROM Sessions s WHERE s.booker_id = emp_id AND curr_date <= s.date;
+		
+		-- Remove employee having fever from all future meetings.
+		DELETE FROM JOINS j WHERE emp_id = j.eid AND curr_date <= j.date;
+		
+		-- Remove close contact employees for future meetings in the next 7 days.
+		DELETE FROM Joins j
+		WHERE j.eid IN (SELECT eid FROM close_contacts_list)
+		AND j.date BETWEEN curr_date AND curr_date + 7;
+		
+		-- Remove bookings where the close contact employee is a booker, approved or not.
+		DELETE FROM Sessions s 
+		WHERE s.booker_id IN (SELECT eid FROM close_contacts_list) 
+		AND s.date BETWEEN curr_date AND curr_date + 7;
+
+		RETURN QUERY SELECT * FROM close_contacts_list;
+		
+	END IF;
 END
 $$ LANGUAGE plpgsql;

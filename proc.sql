@@ -105,3 +105,53 @@ BEGIN
     END IF;
 END
 $$ LANGUAGE plpgsql;
+
+-- Search Room
+CREATE OR REPLACE FUNCTION search_room(search_capacity INT, session_date DATE, start_hour INT, end_hour INT)
+RETURNS TABLE(floor_number INT, room_number INT, department_id INT, room_capacity INT) AS $$
+BEGIN
+    RETURN QUERY WITH RoomWithCapacity AS
+        (WITH FilteredAndSortedUpdates AS
+            (SELECT *, ROW_NUMBER() OVER (PARTITION BY U.floor, U.room_number ORDER BY date DESC) AS row_num
+            FROM Updates U
+            WHERE U.date <= session_date::date)
+        SELECT M.floor, M.room_number, F.new_capacity as capacity, M.did
+        FROM FilteredAndSortedUpdates F, MeetingRooms M
+        WHERE row_num = 1 AND F.room_number = M.room_number AND F.floor = M.floor)
+    SELECT R.floor, R.room_number, R.did, R.capacity
+    FROM RoomWithCapacity R
+    WHERE R.capacity >= search_capacity AND (R.floor, R.room_number) NOT IN (SELECT DISTINCT floor, room
+                                                                             FROM Sessions S
+                                                                             WHERE session_date = S.date AND 
+                                                                                   S.time BETWEEN start_hour AND end_hour-1)
+    ORDER BY R.capacity;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Book Room
+-- 1. Only a senior employee or manager can book a room.
+-- 2. If the room is not available for the given session, no booking can be done.
+-- 3. If the employee is having a fever, they cannot book any room.
+-- 4. If the employee has not declared health declaration on the date of booking, they cannot book any room.
+CREATE OR REPLACE PROCEDURE book_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, booker_id INT)
+AS $$
+DECLARE booking_date DATE := CURRENT_DATE;
+BEGIN
+    IF NOT EXISTS (SELECT * FROM Manager M WHERE booker_id = M.eid) AND NOT EXISTS (SELECT 1 FROM Senior S WHERE booker_id = S.eid) THEN
+        RAISE EXCEPTION 'Employee % is not a senior or manager', booker_id;
+    
+    ELSIF NOT EXISTS (SELECT * FROM HealthDeclaration H WHERE H.eid = booker_id AND H.date = booking_date AND H.temperature <= 37.5) THEN
+        RAISE EXCEPTION 'Employee % has not declared daily health declaration or is having a fever', booker_id;
+    
+    ELSIF EXISTS (SELECT * FROM Sessions S WHERE S.floor = floor_number AND S.room = room_number AND S.date = session_date AND S.time BETWEEN start_hour and end_hour-1) THEN
+        RAISE EXCEPTION 'Meeting Room (Floor % Room %) is not available for booking', floor_number, room_number;
+    
+    ELSE 
+        for counter in start_hour..(end_hour-1) LOOP
+            INSERT INTO Sessions VALUES (session_date, counter, room_number, floor_number, booker_id, NULL);
+            INSERT INTO Joins VALUES (booker_id, session_date, counter, room_number, floor_number);
+        END LOOP;
+
+    END IF;
+END
+$$ LANGUAGE plpgsql;

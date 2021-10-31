@@ -49,7 +49,7 @@ CREATE TABLE MeetingRooms (
 
 CREATE TABLE Sessions (
     date DATE,
-    time TIME,
+    time INTEGER,
     room INTEGER,
     floor INTEGER,
     booker_id INTEGER NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE Sessions (
 CREATE TABLE Joins (
     eid INTEGER,
     date DATE,
-    time TIME,
+    time INTEGER,
     room INTEGER NOT NULL,
     floor INTEGER NOT NULL,
     PRIMARY KEY (eid, date, time),

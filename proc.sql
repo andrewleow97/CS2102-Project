@@ -124,44 +124,43 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-
 -- Core Functions
 
+-- Helper function to find room capacity of meeting room at specified date
+CREATE OR REPLACE FUNCTION find_room_capacity(search_date DATE)
+RETURNS TABLE(floor INT, room INT, did INT, capacity INT) AS $$
+BEGIN
+    RETURN QUERY WITH FilteredAndSortedUpdates AS
+        (SELECT *, ROW_NUMBER() OVER (PARTITION BY U.floor, U.room ORDER BY date DESC) AS row_num
+        FROM Updates U
+        WHERE U.date <= search_date::date)
+    SELECT M.floor, M.room, M.did, F.new_capacity
+    FROM FilteredAndSortedUpdates F, MeetingRooms M
+    WHERE row_num = 1 AND F.room = M.room AND F.floor = M.floor;
+END
+$$ LANGUAGE plpgsql;
+
 -- Search Room
--- 1.The table should be sorted in ascending order of capacity (i.e., we do not want people to hog larger rooms first).
+-- 1.The table should be sorted in ascending order of capacity.
 CREATE OR REPLACE FUNCTION search_room(search_capacity INT, session_date DATE, start_hour INT, end_hour INT)
 RETURNS TABLE(floor_number INT, room_number INT, department_id INT, room_capacity INT) AS $$
 BEGIN
     RETURN QUERY WITH RoomWithCapacity AS
-        (WITH FilteredAndSortedUpdates AS
-            (SELECT *, ROW_NUMBER() OVER (PARTITION BY U.floor, U.room ORDER BY date DESC) AS row_num
-            FROM Updates U
-            WHERE U.date <= session_date::date)
-        SELECT M.floor, M.room, F.new_capacity as capacity, M.did
-        FROM FilteredAndSortedUpdates F, MeetingRooms M
-        WHERE row_num = 1 AND F.room = M.room AND F.floor = M.floor)
+        (SELECT * FROM find_room_capacity(session_date))
     SELECT R.floor, R.room, R.did, R.capacity
     FROM RoomWithCapacity R
     WHERE R.capacity >= search_capacity AND (R.floor, R.room) NOT IN (SELECT DISTINCT floor, room
                                                                       FROM Sessions S
-                                                                      WHERE session_date = S.date AND 
-                                                                            S.time BETWEEN start_hour AND end_hour-1)
-    ORDER BY R.capacity ASC;
-END;
+                                                                      WHERE session_date = S.date
+                                                                        AND S.time BETWEEN start_hour AND end_hour-1)
+    ORDER BY R.capacity;
+END
 $$ LANGUAGE plpgsql;
 
 -- Book Room
--- 1. Only a senior employee or manager can book a room. (enforced by FK Sessions.booker_id -> Booker.eid)
--- 2. If the room is not available for the given session, no booking can be done.
--- 3. If the employee is having a fever or has not declared health declaration, they cannot book any room.
 CREATE OR REPLACE PROCEDURE book_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, booker_id INT)
 AS $$
 BEGIN
-    -- Change to trigger -----------------------------------
-    -- Create trigger to check book future meeting date
-    IF NOT EXISTS (SELECT * FROM HealthDeclaration H WHERE H.eid = booker_id AND H.date = booking_date AND H.temperature <= 37.5) THEN
-        RAISE EXCEPTION 'Employee % has not declared daily health declaration or is having a fever', booker_id;
-
     for counter in start_hour..(end_hour-1) LOOP
         INSERT INTO Sessions VALUES (session_date, counter, room_number, floor_number, booker_id, NULL);
     END LOOP;
@@ -169,23 +168,13 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Book room triggers
--- 1. The employee booking the room immediately joins the booked meeting.
-CREATE OR REPLACE FUNCTION booker_joins_meeting()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO Joins VALUES (NEW.booker_id, NEW.date, NEW.time, NEW.floor, NEW.room);
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS booker_joins_meeting ON Sessions;
-CREATE TRIGGER booker_joins_meeting AFTER INSERT ON Sessions
-FOR EACH ROW EXECUTE FUNCTION booker_joins_meeting();
-
--- 2. If employee is resigned, they cannot book any meetings.
-CREATE OR REPLACE FUNCTION check_booker_not_resigned()
+-- 1. If employee is resigned, they cannot book any meetings.
+-- 2. If the employee is having a fever or has not declared health declaration, they cannot book any room.
+-- 3. Employee can only book meetings on future dates.
+CREATE OR REPLACE FUNCTION check_booking()
 RETURNS TRIGGER AS $$
 DECLARE resigned_date DATE;
+DECLARE current_date DATE := CURRENT_DATE;
 BEGIN
     SELECT E.resigned_date INTO resigned_date
     FROM Employees E
@@ -195,13 +184,34 @@ BEGIN
         RAISE EXCEPTION 'Employee % has already resigned, cannot book meeting', NEW.booker_id;
     END IF;
 
+    IF NOT EXISTS (SELECT * FROM HealthDeclaration H WHERE H.eid = NEW.booker_id AND H.date = NEW.date AND H.fever = TRUE) THEN
+        RAISE EXCEPTION 'Employee % has not declared daily health declaration or is having a fever', booker_id;
+    END IF;
+
+    IF NEW.time < current_date THEN
+        RAISE EXCEPTION 'Meetings can only be booked on future dates';
+    END IF;
+
     RETURN NEW;
-END;
+END
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS check_booker_not_resigned ON Sessions;
-CREATE TRIGGER check_booker_not_resigned BEFORE INSERT ON Sessions
-FOR EACH ROW EXECUTE FUNCTION check_booker_not_resigned();
+DROP TRIGGER IF EXISTS check_booker ON Sessions;
+CREATE TRIGGER check_booker BEFORE INSERT ON Sessions
+FOR EACH ROW EXECUTE FUNCTION check_booker();
+
+-- 4. The employee booking the room immediately joins the booked meeting.
+CREATE OR REPLACE FUNCTION booker_joins_meeting()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO Joins VALUES (NEW.booker_id, NEW.date, NEW.time, NEW.floor, NEW.room);
+    RETURN NULL;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS booker_joins_meeting ON Sessions;
+CREATE TRIGGER booker_joins_meeting AFTER INSERT ON Sessions
+FOR EACH ROW EXECUTE FUNCTION booker_joins_meeting();
 
 -- Unbook Room
 -- 1. If this is not the employee doing the booking, the employee is not allowed to remove booking
@@ -226,7 +236,6 @@ BEGIN
     END LOOP;
 END
 $$ LANGUAGE plpgsql;
-
 
 -- Add Health Declaration for an Employee
 CREATE OR REPLACE PROCEDURE declare_health (emp_id INTEGER, date DATE, temperature NUMERIC)
@@ -258,11 +267,11 @@ BEGIN
     INSERT INTO close_contacts_list SELECT DISTINCT J2.eid AS eid
         FROM Joins J, Joins J2, Sessions S
         WHERE J.date = S.date AND J.time = S.time
-        AND J.room = S.room AND J.floor = S.floor
-        AND J2.date = S.date AND J2.time = S.time
-        AND J2.room = S.room AND J2.floor = S.floor
-        AND J.eid <> j2.eid AND s.approver_id IS NOT NULL 
-        AND emp_id = j.eid AND s.date BETWEEN curr_date - 3 AND curr_date;
+            AND J.room = S.room AND J.floor = S.floor
+            AND J2.date = S.date AND J2.time = S.time
+            AND J2.room = S.room AND J2.floor = S.floor
+            AND J.eid <> j2.eid AND s.approver_id IS NOT NULL 
+            AND emp_id = j.eid AND s.date BETWEEN curr_date - 3 AND curr_date;
         
     -- Remove bookings where the employee is the booker, approved or not.
     DELETE FROM Sessions S WHERE S.booker_id = emp_id AND curr_date <= S.date;
@@ -301,8 +310,7 @@ BEGIN
     SELECT HD.fever INTO is_fever
     FROM HealthDeclaration HD
     WHERE NEW.eid = HD.eid
-    AND HD.date = CURRENT_DATE
-    ;
+        AND HD.date = CURRENT_DATE;
 
     IF is_fever = TRUE THEN
         RAISE NOTICE 'Employee % has fever, unable to join meeting', NEW.eid;
@@ -312,12 +320,11 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    SELECT S.date, S.time, S.room, S.floor, S.approver_id INTO meeting_date, meeting_time, 
-    meeting_room, meeting_floor, meeting_approver_id
+    SELECT S.date, S.time, S.room, S.floor, S.approver_id
+    INTO meeting_date, meeting_time, meeting_room, meeting_floor, meeting_approver_id
     FROM Sessions S
     WHERE S.date = NEW.date AND S.time = NEW.time 
-    AND S.room = NEW.room AND S.floor = NEW.floor
-    ;
+        AND S.room = NEW.room AND S.floor = NEW.floor;
 
     IF meeting_date IS NULL OR meeting_time IS NULL THEN
         RAISE NOTICE 'meeting on % % at floor % room % does not exist', NEW.date, NEW.time, NEW.floor, NEW.room;

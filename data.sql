@@ -83,16 +83,16 @@ INSERT INTO MeetingRooms (floor, room, rname, did) VALUES
 ;
 
 INSERT INTO Updates (date, new_capacity, floor, room, eid) VALUES
-  (CURRENT_DATE, 30, 1, 1, 24),
-  (CURRENT_DATE, 30, 1, 2, 21), 
-  (CURRENT_DATE, 30, 1, 6, 29), 
-  (CURRENT_DATE, 30, 2, 1, 21),
-  (CURRENT_DATE, 30, 2, 2, 23),
-  (CURRENT_DATE, 30, 2, 7, 25),
+  (CURRENT_DATE, 10, 1, 1, 24),
+  (CURRENT_DATE, 10, 1, 2, 21), 
+  (CURRENT_DATE, 10, 1, 6, 29), 
+  (CURRENT_DATE, 20, 2, 1, 21),
+  (CURRENT_DATE, 20, 2, 2, 23),
+  (CURRENT_DATE, 20, 2, 7, 25),
   (CURRENT_DATE, 30, 3, 2, 30), 
   (CURRENT_DATE, 30, 3, 3, 22),
   (CURRENT_DATE, 30, 4, 5, 30), 
-  (CURRENT_DATE, 30, 5, 3, 25)
+  (CURRENT_DATE, 40, 5, 3, 25)
 ;
 
 INSERT INTO HealthDeclaration (eid, date, temperature, fever) VALUES 
@@ -125,19 +125,31 @@ INSERT INTO HealthDeclaration (eid, date, temperature, fever) VALUES
   (27, CURRENT_DATE, 36.2, 'false'),
   (28, CURRENT_DATE, 36.0, 'false'),
   (29, CURRENT_DATE, 37.5, 'true'),
-  (30, CURRENT_DATE, 36.7, 'false')
+  (30, CURRENT_DATE, 36.7, 'false'),
+
+  -- HealthDeclaration for Bookers
+  (11, CURRENT_DATE + 1, 36.5, 'false'),
+  (21, CURRENT_DATE + 2, 36.5, 'false'),
+  (15, CURRENT_DATE + 3, 36.5, 'false'),
+  (23, CURRENT_DATE + 3, 36.5, 'false'),
+  (24, CURRENT_DATE + 4, 36.5, 'false'),
+  (12, CURRENT_DATE + 5, 36.5, 'false'),
+  (23, CURRENT_DATE + 6, 36.5, 'false'),
+  (18, CURRENT_DATE + 7, 36.5, 'false'),
+  (11, CURRENT_DATE + 8, 36.5, 'false'),
+  (15, CURRENT_DATE + 9, 36.5, 'false')
 ;
 
 INSERT INTO Sessions (date, time, floor, room, booker_id, approver_id) VALUES 
-  (CURRENT_DATE + 1, 18, 1, 1, 11, 24),
+  (CURRENT_DATE + 1, 18, 1, 1, 11, null),
   (CURRENT_DATE + 2, 13, 2, 1, 21, null),
-  (CURRENT_DATE + 3, 16, 3, 2, 15, 30),
-  (CURRENT_DATE + 3, 19, 1, 1, 23, 24),
-  (CURRENT_DATE + 4, 17, 1, 6, 24, 29),
+  (CURRENT_DATE + 3, 16, 3, 2, 15, null),
+  (CURRENT_DATE + 3, 19, 1, 1, 23, null),
+  (CURRENT_DATE + 4, 17, 1, 6, 24, null),
   (CURRENT_DATE + 5, 8, 1, 1, 12, null),
-  (CURRENT_DATE + 6, 9, 5, 3, 23, 26),
-  (CURRENT_DATE + 7, 14, 3, 3, 18, 27),
-  (CURRENT_DATE + 8, 11, 2, 2, 11, 28),
+  (CURRENT_DATE + 6, 9, 5, 3, 23, null),
+  (CURRENT_DATE + 7, 14, 3, 3, 18, null),
+  (CURRENT_DATE + 8, 11, 2, 2, 11, null),
   (CURRENT_DATE + 9, 10, 3, 3, 15, null)
 ;
 

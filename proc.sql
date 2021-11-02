@@ -163,15 +163,37 @@ $$ LANGUAGE plpgsql;
 
 -- Book room triggers
 -- 1. The employee booking the room immediately joins the booked meeting.
-DROP TRIGGER IF EXISTS book_session ON Sessions;
-CREATE TRIGGER book_session AFTER INSERT ON Sessions
-FOR EACH ROW EXECUTE FUNCTION booker_join_meeting();
+DROP TRIGGER IF EXISTS booker_joins_meeting ON Sessions;
+CREATE TRIGGER booker_joins_meeting AFTER INSERT ON Sessions
+FOR EACH ROW EXECUTE FUNCTION booker_joins_meeting();
 
-CREATE OR REPLACE FUNCTION booker_join_meeting()
+CREATE OR REPLACE FUNCTION booker_joins_meeting()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO Joins VALUES (NEW.booker_id, NEW.date, NEW.time, NEW.floor, NEW.room);
     RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 2. If employee is resigned, they cannot book any meetings.
+DROP TRIGGER IF EXISTS check_booker_not_resigned ON Sessions;
+CREATE TRIGGER check_booker_not_resigned BEFORE INSERT ON Sessions
+FOR EACH ROW EXECUTE FUNCTION check_booker_not_resigned();
+
+CREATE OR REPLACE FUNCTION check_booker_not_resigned()
+RETURNS TRIGGER AS $$
+DECLARE resigned_date DATE;
+BEGIN
+    SELECT E.resigned_date INTO resigned_date
+    FROM Employees E
+    WHERE E.eid = NEW.booker_id;
+
+    IF resigned_date IS NOT NULL THEN
+        RAISE NOTICE 'Employee % has already resigned, cannot book meeting', NEW.booker_id;
+        RETURN NULL;
+    END IF;
+
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 

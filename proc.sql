@@ -421,7 +421,7 @@ EXECUTE FUNCTION check_approve_meeting();
 -- 4. Employee cannot join meeting that is already approved
 -- 5. Employee can join meeting only if max capacity not reached
 CREATE OR REPLACE FUNCTION join_meeting 
-(eid INT, meeting_date DATE, start_hour INT, end_hour INT, room INT, floor INT)
+(eid INT, meeting_date DATE, start_hour INT, end_hour INT, floor INT, room INT)
 RETURNS VOID AS $$
 DECLARE 
     curr_hour INT := start_hour;
@@ -441,7 +441,7 @@ $$ LANGUAGE plpgsql;
 -- 1. Employee cannot leave meeting that is already approved
 -- 2. Employee can only leave from a future meeting
 CREATE OR REPLACE FUNCTION leave_meeting
-(employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, room_num INT, floor_num INT)
+(employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT)
 RETURNS VOID AS $$
 DECLARE
     curr_hour INT:= start_hour;
@@ -491,7 +491,7 @@ $$ LANGUAGE plpgsql;
 -- 4. If manager resigned, cannot approve
 -- 5. If meeting already approved, cannot approve again
 CREATE OR REPLACE FUNCTION approve_meeting 
-(employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, room_num INT, floor_num INT, status CHAR(1))
+(employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT, status CHAR(1))
 RETURNS VOID AS $$
 DECLARE 
     curr_hour INT := start_hour;

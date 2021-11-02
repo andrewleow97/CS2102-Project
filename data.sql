@@ -69,122 +69,94 @@ INSERT INTO Manager (eid) VALUES
   (21), (22), (23), (24), (25), (26), (27), (28), (29), (30)
 ;
 
-INSERT INTO MeetingRooms (room_number, floor, rname, did) VALUES 
+INSERT INTO MeetingRooms (floor, room, rname, did) VALUES 
   (1, 1, 'Room 1-1', 2),
   (1, 2, 'Room 1-2', 3),
+  (1, 6, 'Room 1-1', 4),
   (2, 1, 'Room 2-1', 3),
   (2, 2, 'Room 2-2', 7),
-  (2, 3, 'Room 2-3', 6),
+  (2, 7, 'Room 2-7', 9),
+  (3, 2, 'Room 3-2', 6),
   (3, 3, 'Room 3-3', 8),
-  (3, 5, 'Room 3-5', 9),
-  (5, 4, 'Room 5-4', 6),
-  (6, 1, 'Room 6-1', 4),
-  (7, 2, 'Room 7-2', 9)
+  (4, 5, 'Room 4-5', 6),
+  (5, 3, 'Room 5-3', 9)
 ;
 
-INSERT INTO Sessions (date, time, room, floor, booker_id, approver_id) VALUES 
-/*
-dept 2 manager 24 room 1-1
-dept 3 manager 21 room 1-2
-dept 4 manager 29 room 6-1
-dept 6 manager 30 room 2-3
-dept 7 manager 23, 28 room 2-2
-dept 8 manager 22, 27 room 3-3
-dept 9 manager 25, 26 room 3-5 
-*/
-  ('2021-11-2', 18, 1, 1, 11, 24),
-  ('2021-11-4', 13, 1, 2, 21, null),
-  ('2021-11-5', 16, 2, 3, 15, 30),
-  ('2021-11-5', 19, 1, 1, 23, 24),
-  ('2021-11-18', 17, 6, 1, 24, 29),
-  ('2021-11-18', 8, 1, 1, 12, null),
-  ('2021-11-21', 9, 3, 5, 23, 26),
-  ('2021-11-22', 14, 3, 3, 18, 27),
-  ('2021-11-23', 11, 2, 2, 11, 28),
-  ('2021-11-25', 10, 3, 3, 15, null)
-;
-
-INSERT INTO Joins (eid, date, time, room, floor) VALUES 
--- Booker must join the session
-  (11,' 2021-11-2', 18, 1, 1),
-
-  (21, '2021-11-4', 13, 1, 2),
-  (6, '2021-11-4', 13, 1, 2),
-  (8, '2021-11-4', 13, 1, 2),
-  (19, '2021-11-4', 13, 1, 2),
-
-  (15, '2021-11-5', 16, 2, 3),
-
-  (23, '2021-11-5', 19, 1, 1),
-  (2, '2021-11-5', 19, 1, 1),
-  (30, '2021-11-5', 19, 1, 1),
-  (26, '2021-11-5', 19, 1, 1),
-  (24, '2021-11-5', 19, 1, 1),
-
-  (24, '2021-11-18', 17, 6, 1),
-
-  (12, '2021-11-18', 8, 1, 1),
-
-  (23, '2021-11-21', 9, 3, 5),
-  (2, '2021-11-21', 9, 3, 5),
-  (3, '2021-11-21', 9, 3, 5),
-  (15, '2021-11-21', 9, 3, 5),
-  (26, '2021-11-21', 9, 3, 5),
-  (17, '2021-11-21', 9, 3, 5),
-  (11, '2021-11-21', 9, 3, 5),
-  (10, '2021-11-21', 9, 3, 5),
-
-  (18, '2021-11-22', 14, 3, 3),
-  (27, '2021-11-22', 14, 3, 3),
-  (6, '2021-11-22', 14, 3, 3),
-
-  (11, '2021-11-23', 11, 2, 2),
-
-  (15, '2021-11-25', 10, 3, 3)
+INSERT INTO Updates (date, new_capacity, floor, room, eid) VALUES
+  (CURRENT_DATE, 30, 1, 1, 24),
+  (CURRENT_DATE, 30, 1, 2, 21), 
+  (CURRENT_DATE, 30, 1, 6, 29), 
+  (CURRENT_DATE, 30, 2, 1, 21),
+  (CURRENT_DATE, 30, 2, 2, 23),
+  (CURRENT_DATE, 30, 2, 7, 25),
+  (CURRENT_DATE, 30, 3, 2, 30), 
+  (CURRENT_DATE, 30, 3, 3, 22),
+  (CURRENT_DATE, 30, 4, 5, 30), 
+  (CURRENT_DATE, 30, 5, 3, 25)
 ;
 
 INSERT INTO HealthDeclaration (eid, date, temperature, fever) VALUES 
-  (1, '2021-10-30', 36.7, 'false'),
-  (2, '2021-10-30', 37.4, 'false'),
-  (3, '2021-10-30', 36.7, 'false'),
-  (4, '2021-10-30', 36.5, 'false'),
-  (5, '2021-10-30', 38.0, 'true'),
-  (6, '2021-10-30', 36.2, 'false'),
-  (7, '2021-10-30', 36.2, 'false'),
-  (8, '2021-10-30', 36.0, 'false'),
-  (9, '2021-10-30', 37.5, 'true'),
-  (10, '2021-10-30', 36.7, 'false'),
-  (11, '2021-10-30', 36.7, 'false'),
-  (12, '2021-10-30', 37.4, 'false'),
-  (13, '2021-10-30', 36.7, 'false'),
-  (14, '2021-10-30', 36.5, 'false'),
-  (15, '2021-10-30', 38.0, 'true'),
-  (16, '2021-10-30', 36.2, 'false'),
-  (17, '2021-10-30', 36.2, 'false'),
-  (18, '2021-10-30', 36.0, 'false'),
-  (19, '2021-10-30', 37.5, 'true'),
-  (20, '2021-10-30', 36.7, 'false'),
-  (21, '2021-10-30', 36.7, 'false'),
-  (22, '2021-10-30', 37.4, 'false'),
-  (23, '2021-10-30', 36.7, 'false'),
-  (24, '2021-10-30', 36.5, 'false'),
-  (25, '2021-10-30', 38.0, 'true'),
-  (26, '2021-10-30', 36.2, 'false'),
-  (27, '2021-10-30', 36.2, 'false'),
-  (28, '2021-10-30', 36.0, 'false'),
-  (29, '2021-10-30', 37.5, 'true'),
-  (30, '2021-10-30', 36.7, 'false')
+  (1, CURRENT_DATE, 36.7, 'false'),
+  (2, CURRENT_DATE, 37.4, 'false'),
+  (3, CURRENT_DATE, 36.7, 'false'),
+  (4, CURRENT_DATE, 36.5, 'false'),
+  (5, CURRENT_DATE, 38.0, 'true'),
+  (6, CURRENT_DATE, 36.2, 'false'),
+  (7, CURRENT_DATE, 36.2, 'false'),
+  (8, CURRENT_DATE, 36.0, 'false'),
+  (9, CURRENT_DATE, 37.5, 'true'),
+  (10, CURRENT_DATE, 36.7, 'false'),
+  (11, CURRENT_DATE, 36.7, 'false'),
+  (12, CURRENT_DATE, 37.4, 'false'),
+  (13, CURRENT_DATE, 36.7, 'false'),
+  (14, CURRENT_DATE, 36.5, 'false'),
+  (15, CURRENT_DATE, 38.0, 'true'),
+  (16, CURRENT_DATE, 36.2, 'false'),
+  (17, CURRENT_DATE, 36.2, 'false'),
+  (18, CURRENT_DATE, 36.0, 'false'),
+  (19, CURRENT_DATE, 37.5, 'true'),
+  (20, CURRENT_DATE, 36.7, 'false'),
+  (21, CURRENT_DATE, 36.7, 'false'),
+  (22, CURRENT_DATE, 37.4, 'false'),
+  (23, CURRENT_DATE, 36.7, 'false'),
+  (24, CURRENT_DATE, 36.5, 'false'),
+  (25, CURRENT_DATE, 38.0, 'true'),
+  (26, CURRENT_DATE, 36.2, 'false'),
+  (27, CURRENT_DATE, 36.2, 'false'),
+  (28, CURRENT_DATE, 36.0, 'false'),
+  (29, CURRENT_DATE, 37.5, 'true'),
+  (30, CURRENT_DATE, 36.7, 'false')
 ;
 
-INSERT INTO Updates (date, new_capacity, room_number, floor, manager_id) VALUES
-  ('2021-10-1', 30, 1, 1, 24),
-  ('2021-10-1', 30, 1, 2, 21),
-  ('2021-10-11', 30, 2, 1, 21), 
-  ('2021-10-15', 30, 2, 2, 23),
-  ('2021-10-1', 30, 2, 3, 30), 
-  ('2021-10-1', 30, 3, 3, 22),
-  ('2021-10-1', 30, 3, 5, 25),
-  ('2021-10-1', 30, 5, 4, 30), 
-  ('2021-10-1', 30, 6, 1, 29), 
-  ('2021-10-1', 30, 7, 2, 25)
+INSERT INTO Sessions (date, time, floor, room, booker_id, approver_id) VALUES 
+  (CURRENT_DATE + 1, 18, 1, 1, 11, 24),
+  (CURRENT_DATE + 2, 13, 2, 1, 21, null),
+  (CURRENT_DATE + 3, 16, 3, 2, 15, 30),
+  (CURRENT_DATE + 3, 19, 1, 1, 23, 24),
+  (CURRENT_DATE + 4, 17, 1, 6, 24, 29),
+  (CURRENT_DATE + 5, 8, 1, 1, 12, null),
+  (CURRENT_DATE + 6, 9, 5, 3, 23, 26),
+  (CURRENT_DATE + 7, 14, 3, 3, 18, 27),
+  (CURRENT_DATE + 8, 11, 2, 2, 11, 28),
+  (CURRENT_DATE + 9, 10, 3, 3, 15, null)
+;
+
+-- Booker must join the session (enforced by trigger)
+INSERT INTO Joins (eid, date, time, floor, room) VALUES 
+  (6, CURRENT_DATE + 2, 13, 2, 1),
+  (8, CURRENT_DATE + 2, 13, 2, 1),
+  (19, CURRENT_DATE + 2, 13, 2, 1),
+  (2, CURRENT_DATE + 3, 19, 1, 1),
+  (30, CURRENT_DATE + 3, 19, 1, 1),
+  (26, CURRENT_DATE + 3, 19, 1, 1),
+  (24, CURRENT_DATE + 3, 19, 1, 1),
+  (2, CURRENT_DATE + 6, 9, 5, 3),
+  (3, CURRENT_DATE + 6, 9, 5, 3),
+  (15, CURRENT_DATE + 6, 9, 5, 3),
+  (26, CURRENT_DATE + 6, 9, 5, 3),
+  (17, CURRENT_DATE + 6, 9, 5, 3),
+  (11, CURRENT_DATE + 6, 9, 5, 3),
+  (10, CURRENT_DATE + 6, 9, 5, 3),
+  (27, CURRENT_DATE + 7, 14, 3, 3),
+  (6, CURRENT_DATE + 7, 14, 3, 3)
 ;

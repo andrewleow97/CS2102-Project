@@ -299,7 +299,7 @@ BEGIN
     ;
 
     IF meeting_date IS NULL OR meeting_time IS NULL THEN
-        RAISE NOTICE 'meeting on % % at room % floor % does not exist', NEW.date, NEW.time, NEW.room, NEW.floor;
+        RAISE NOTICE 'meeting on % % at floor % room % does not exist', NEW.date, NEW.time, NEW.floor, NEW.room;
         RETURN NULL;
     
     END IF;
@@ -319,7 +319,7 @@ BEGIN
     END IF;
 
     IF meeting_approver_id IS NOT NULL THEN
-        RAISE NOTICE 'meeting on % % at room % floor % approved, unable to join', NEW.date, NEW.time, NEW.room, NEW.floor;
+        RAISE NOTICE 'meeting on % % at floor % room % approved, unable to join', NEW.date, NEW.time, NEW.floor, NEW.room;
         RETURN NULL;
     END IF;
 
@@ -351,10 +351,10 @@ BEGIN
         current_capacity, meeting_capacity;
 
     IF current_capacity + 1 > meeting_capacity THEN
-        RAISE NOTICE 'meeting on % % at room % floor % is full, unable to join', NEW.date, NEW.time, NEW.room, NEW.floor;
+        RAISE NOTICE 'meeting on % % at floor % room % is full, unable to join', NEW.date, NEW.time, NEW.floor, NEW.room;
         RETURN NULL;
     ELSE
-        RAISE NOTICE 'Employee % joined meeting on % % at room % floor %', NEW.eid, NEW.date, NEW.time, NEW.room, NEW.floor;
+        RAISE NOTICE 'Employee % joined meeting on % % at floor % room %', NEW.eid, NEW.date, NEW.time, NEW.floor, NEW.room;
         RETURN NEW;
     END IF;
 END;
@@ -375,7 +375,7 @@ BEGIN
     AND S.room = NEW.room AND S.floor = NEW.floor;
 
     IF meeting_approver_id IS NOT NULL THEN
-        RAISE NOTICE 'meeting on % % at room % floor % already approved, unable to approve again', NEW.date, NEW.time, NEW.room, NEW.floor;
+        RAISE NOTICE 'meeting on % % at floor % room % already approved, unable to approve again', NEW.date, NEW.time, NEW.floor, NEW.room;
         RETURN NULL;
     END IF;
 
@@ -388,8 +388,8 @@ BEGIN
         RETURN NULL;
     END IF; 
 
-    RAISE NOTICE 'Manager eid % approved booking for meeting room at room % floor %', 
-    NEW.approver_id, NEW.room, NEW.floor;
+    RAISE NOTICE 'Manager eid % approved booking for meeting room at floor % room %', 
+    NEW.approver_id, NEW.floor, NEW.room;
     RETURN NEW;
 
 END;
@@ -475,7 +475,7 @@ BEGIN
             AND J.room = room_num AND J.floor = floor_num;
             RAISE NOTICE 'meeting does not exist or employee % removed', employee_id;
         ELSE
-            RAISE NOTICE 'meeting on % % at room % floor % already approved', meeting_date, curr_hour, room_num, floor_num;
+            RAISE NOTICE 'meeting on % % at floor % room % already approved', meeting_date, curr_hour, floor_num, room_num;
         END IF;
         curr_hour := curr_hour + 1;
     END LOOP;
@@ -539,7 +539,7 @@ BEGIN
                     WHERE date = meeting_date AND time = curr_hour
                     AND room = room_num AND floor = floor_num;
                     RAISE NOTICE 'Manager eid % from dept % rejected booking for meeting room from dpt 
-                    on % at room % floor %', employee_id, employee_did, meeting_room_did, room_num, floor_num;
+                    on % at floor % room %', employee_id, employee_did, meeting_room_did, floor_num, room_num;
                     RAISE NOTICE 'Session removed';
                 ELSE
                     UPDATE Sessions

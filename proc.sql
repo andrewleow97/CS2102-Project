@@ -26,8 +26,8 @@ DECLARE man_did INTEGER := 0;
 BEGIN
     SELECT E.did INTO man_did FROM Employees E WHERE E.eid = manager_id;
     IF man_did = did THEN 
-        INSERT INTO MeetingRooms VALUES (room, floor, rname, did); -- floor and room primary key
-        INSERT INTO Updates VALUES (date, room_capacity, room, floor, manager_id);
+        INSERT INTO MeetingRooms VALUES (floor, room, rname, did); -- floor and room primary key
+        INSERT INTO Updates VALUES (date, room_capacity, floor, room, manager_id);
     ELSE 
         RAISE EXCEPTION 'Manager department % does not match room department %', man_did, did;
     END IF;
@@ -44,7 +44,7 @@ BEGIN
     SELECT M.did INTO room_did FROM MeetingRooms M WHERE M.floor = floor AND M.room = room;
 
     IF man_did = room_did THEN
-        INSERT INTO Updates VALUES (date, room_capacity, room, floor, manager_id);
+        INSERT INTO Updates VALUES (date, room_capacity, floor, room, manager_id);
     ELSE
         RAISE EXCEPTION 'Manager department % does not match room department %', man_did, room_did;
     END IF;
@@ -345,7 +345,7 @@ BEGIN
     FROM Joins 
     WHERE date = meeting_date AND time = meeting_time
     AND room = meeting_room AND floor = meeting_floor
-    GROUP BY (date, time, room, floor);
+    GROUP BY (date, time, floor, room);
 
     RAISE NOTICE 'current capacity = %, max capacity = %',
         current_capacity, meeting_capacity;
@@ -402,11 +402,11 @@ ON Joins;
 DROP TRIGGER IF EXISTS approving_meeting
 ON Sessions;
 
--- CREATE TRIGGER employee_joining
--- BEFORE INSERT
--- ON Joins
--- FOR EACH ROW
--- EXECUTE FUNCTION check_join_meeting();
+CREATE TRIGGER employee_joining
+BEFORE INSERT
+ON Joins
+FOR EACH ROW
+EXECUTE FUNCTION check_join_meeting();
 
 CREATE TRIGGER approving_meeting
 BEFORE UPDATE
@@ -429,7 +429,7 @@ BEGIN
     LOOP
         EXIT WHEN curr_hour > end_hour;
         INSERT INTO Joins
-        VALUES (eid, meeting_date, curr_hour, room, floor);
+        VALUES (eid, meeting_date, curr_hour, floor, room);
         curr_hour := curr_hour + 1;
     END LOOP;
 END;

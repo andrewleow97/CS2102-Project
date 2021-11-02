@@ -78,20 +78,20 @@ BEGIN
     new_eid := new_eid + 1;
     email := CONCAT(ename, new_eid::TEXT, '@gmail.com');
 
-    IF designation IN ('Junior', 'Senior', 'Manager') THEN
-        INSERT INTO Employees VALUES (new_eid, did, ename, email, home_phone, mobile_phone, office_phone, resigned_date);
-    ELSE 
+    IF designation NOT IN ('Junior', 'Senior', 'Manager') THEN
         RAISE EXCEPTION 'Wrong role given -> %.', designation;
-    END IF;
+    END IF; 
+    
+    INSERT INTO Employees VALUES (new_eid, did, ename, email, home_phone, mobile_phone, office_phone, resigned_date);
 
     IF designation = 'Junior' THEN 
         INSERT INTO Junior VALUES(new_eid);
     ELSIF designation = 'Senior' THEN 
-        INSERT INTO Senior VALUES(new_eid); 
         INSERT INTO Booker VALUES (new_eid);
+        INSERT INTO Senior VALUES(new_eid); 
     ELSIF designation = 'Manager' THEN 
-        INSERT INTO Manager VALUES (new_eid); INSERT INTO Booker VALUES (new_eid);
-
+        INSERT INTO Booker VALUES (new_eid);
+        INSERT INTO Manager VALUES (new_eid); 
     END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -105,11 +105,11 @@ BEGIN
 
     IF eid_exist = false THEN 
         RAISE EXCEPTION 'Employee % does not exist', emp_id; 
-    ELSE 
-        UPDATE Employees E
-        SET resigned_date = date
-        WHERE E.eid = emp_id;
     END IF;
+
+    UPDATE Employees E
+    SET resigned_date = date
+    WHERE E.eid = emp_id;
 
     -- Remove this employee from all sessions beyong their resignation date, regardless of session approval status
     DELETE FROM Joins J WHERE J.eid = eid AND J.date > date::DATE;

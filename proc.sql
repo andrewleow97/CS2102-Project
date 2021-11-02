@@ -51,17 +51,19 @@ BEGIN
 
     -- Cancel all future meetings beyond date where participants > capacity regardless of approval status
 
-    WITH ExceedCap AS (SELECT S.room, S.floor, S.date, S.time, COUNT(*)
-    FROM Sessions S JOIN Joins J 
-    ON S.date = J.date AND S.time = J.time AND S.room = J.room AND S.floor = J.floor
-    WHERE S.date > date -- Change this if want to include same day meetings
-    GROUP BY (S.room, S.floor, S.date, S.time)
-    HAVING COUNT(*) > room_capacity)
+    WITH ExceedCap AS
+        (SELECT S.floor, S.room, S.date, S.time, COUNT(*)
+        FROM Sessions S JOIN Joins J 
+        ON S.date = J.date AND S.time = J.time AND S.floor = J.floor AND S.room = J.room 
+        WHERE S.date > date -- Change this if want to include same day meetings
+        GROUP BY (S.floor, S.room, S.date, S.time)
+        HAVING COUNT(*) > room_capacity)
 
     DELETE FROM Sessions S 
-    WHERE S.room IN (SELECT E.room FROM ExceedCap E) 
-    AND S.floor IN (SELECT E.floor FROM ExceedCap E)
-    AND S.date IN (SELECT E.date FROM ExceedCap E);
+    WHERE S.floor IN (SELECT E.floor FROM ExceedCap E)
+        AND S.room IN (SELECT E.room FROM ExceedCap E) 
+        AND S.date IN (SELECT E.date FROM ExceedCap E);
+        --AND S.time IN (SELECT E.time FROM ExceedCap E)
 END
 $$ LANGUAGE plpgsql;
 
@@ -123,48 +125,76 @@ RETURNS TABLE(floor_number INT, room_number INT, department_id INT, room_capacit
 BEGIN
     RETURN QUERY WITH RoomWithCapacity AS
         (WITH FilteredAndSortedUpdates AS
-            (SELECT *, ROW_NUMBER() OVER (PARTITION BY U.floor, U.room_number ORDER BY date DESC) AS row_num
+            (SELECT *, ROW_NUMBER() OVER (PARTITION BY U.floor, U.room ORDER BY date DESC) AS row_num
             FROM Updates U
             WHERE U.date <= session_date::date)
-        SELECT M.floor, M.room_number, F.new_capacity as capacity, M.did
+        SELECT M.floor, M.room, F.new_capacity as capacity, M.did
         FROM FilteredAndSortedUpdates F, MeetingRooms M
-        WHERE row_num = 1 AND F.room_number = M.room_number AND F.floor = M.floor)
-    SELECT R.floor, R.room_number, R.did, R.capacity
+        WHERE row_num = 1 AND F.room = M.room AND F.floor = M.floor)
+    SELECT R.floor, R.room, R.did, R.capacity
     FROM RoomWithCapacity R
-    WHERE R.capacity >= search_capacity AND (R.floor, R.room_number) NOT IN (SELECT DISTINCT floor, room
-                                                                             FROM Sessions S
-                                                                             WHERE session_date = S.date AND 
-                                                                                   S.time BETWEEN start_hour AND end_hour-1)
+    WHERE R.capacity >= search_capacity AND (R.floor, R.room) NOT IN (SELECT DISTINCT floor, room
+                                                                      FROM Sessions S
+                                                                      WHERE session_date = S.date AND 
+                                                                            S.time BETWEEN start_hour AND end_hour-1)
     ORDER BY R.capacity;
 END;
 $$ LANGUAGE plpgsql;
 
-
 -- Book Room
--- 1. Only a senior employee or manager can book a room.
+-- 1. Only a senior employee or manager can book a room. (enforced by FK Sessions.booker_id -> Booker.eid)
 -- 2. If the room is not available for the given session, no booking can be done.
--- 3. If the employee is having a fever, they cannot book any room.
--- 4. If the employee has not declared health declaration on the date of booking, they cannot book any room.
-CREATE OR REPLACE PROCEDURE book_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, booker_id INT)
+-- 3. If the employee is having a fever or has not declared health declaration, they cannot book any room.
+CREATE OR REPLACE PROCEDURE book_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, booker_id INT, booking_date DATE)
 AS $$
-DECLARE booking_date DATE := CURRENT_DATE;
 BEGIN
-    IF NOT EXISTS (SELECT * FROM Manager M WHERE booker_id = M.eid) AND NOT EXISTS (SELECT 1 FROM Senior S WHERE booker_id = S.eid) THEN
-        RAISE EXCEPTION 'Employee % is not a senior or manager', booker_id;
-    
-    ELSIF NOT EXISTS (SELECT * FROM HealthDeclaration H WHERE H.eid = booker_id AND H.date = booking_date AND H.temperature <= 37.5) THEN
+    IF NOT EXISTS (SELECT * FROM HealthDeclaration H WHERE H.eid = booker_id AND H.date = booking_date AND H.temperature <= 37.5) THEN
         RAISE EXCEPTION 'Employee % has not declared daily health declaration or is having a fever', booker_id;
-    
+
     ELSIF EXISTS (SELECT * FROM Sessions S WHERE S.floor = floor_number AND S.room = room_number AND S.date = session_date AND S.time BETWEEN start_hour and end_hour-1) THEN
         RAISE EXCEPTION 'Meeting Room (Floor % Room %) is not available for booking', floor_number, room_number;
-    
-    ELSE 
-        for counter in start_hour..(end_hour-1) LOOP
-            INSERT INTO Sessions VALUES (session_date, counter, room_number, floor_number, booker_id, NULL);
-            INSERT INTO Joins VALUES (booker_id, session_date, counter, room_number, floor_number);
-        END LOOP;
-
     END IF;
+    
+    for counter in start_hour..(end_hour-1) LOOP
+        INSERT INTO Sessions VALUES (session_date, counter, room_number, floor_number, booker_id, NULL);
+    END LOOP;
+END
+$$ LANGUAGE plpgsql;
+
+-- Book room triggers
+-- 1. The employee booking the room immediately joins the booked meeting.
+DROP TRIGGER IF EXISTS book_session ON Sessions;
+CREATE TRIGGER book_session AFTER INSERT ON Sessions
+FOR EACH ROW EXECUTE FUNCTION booker_join_meeting();
+
+CREATE OR REPLACE FUNCTION booker_join_meeting()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO Joins VALUES (NEW.booker_id, NEW.date, NEW.time, NEW.floor, NEW.room);
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Unbook Room
+-- 1. If this is not the employee doing the booking, the employee is not allowed to remove booking
+CREATE OR REPLACE PROCEDURE unbook_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, unbooker_id INT)
+AS $$
+DECLARE booker_id INTEGER;
+BEGIN
+    for counter in start_hour..(end_hour-1) LOOP
+        SELECT S.booker_id INTO booker_id
+        FROM Sessions S
+        WHERE S.date = session_date AND S.floor = floor_number
+              AND S.room = room_number AND S.time = counter;
+        
+        IF unbooker_id <> booker_id THEN
+            RAISE NOTICE 'Unable to remove booking, employee_id % does not match booker_id %', unbooker_id, booker_id;
+        ELSE
+            DELETE FROM Sessions S
+            WHERE S.date = session_date AND S.floor = floor_number
+                  AND S.room = room_number AND S.time = counter;
+        END IF;
+    END LOOP;
 END
 $$ LANGUAGE plpgsql;
 
@@ -230,26 +260,6 @@ BEGIN
 		RETURN QUERY SELECT * FROM close_contacts_list;
 		
 	END IF;
-END
--- Unbook Room
--- 1. If this is not the employee doing the booking, the employee is not allowed to remove booking
-CREATE OR REPLACE PROCEDURE unbook_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, unbooker_id INT)
-AS $$
-DECLARE booker_id INTEGER := 0;
-BEGIN
-    for counter in start_hour..(end_hour-1) LOOP
-        SELECT S.booker_id INTO booker_id
-        FROM Sessions S
-        WHERE S.date = session_date AND S.floor = floor_number
-              AND S.room = room_number AND S.time = counter;
-        
-        -- If unbooker_id <> booker_id, continue searching for bookings with same id for removal.
-        IF unbooker_id = booker_id THEN
-            DELETE FROM Sessions S
-            WHERE S.date = session_date AND S.floor = floor_number
-                  AND S.room = room_number AND S.time = counter;
-        END IF;
-    END LOOP;
 END
 $$ LANGUAGE plpgsql;
 
@@ -318,12 +328,12 @@ BEGIN
         SELECT date AS prev_date
         FROM Updates
         WHERE date <= meeting_date
-        AND room_number = meeting_room
+        AND room = meeting_room
         AND floor = meeting_floor
     )
     SELECT U.new_capacity INTO meeting_capacity
     FROM Updates U
-    WHERE U.room_number = meeting_room
+    WHERE U.room = meeting_room
     AND U.floor = meeting_floor
     AND U.date = (
         SELECT MAX(prev_date)
@@ -383,7 +393,7 @@ BEGIN
     RETURN NEW;
 
 END;
-$$ language plpgsql;
+$$ LANGUAGE plpgsql;
 
 ---------------------creating triggers ------------------------
 DROP TRIGGER IF EXISTS employee_joining
@@ -392,11 +402,11 @@ ON Joins;
 DROP TRIGGER IF EXISTS approving_meeting
 ON Sessions;
 
-CREATE TRIGGER employee_joining
-BEFORE INSERT
-ON Joins
-FOR EACH ROW
-EXECUTE FUNCTION check_join_meeting();
+-- CREATE TRIGGER employee_joining
+-- BEFORE INSERT
+-- ON Joins
+-- FOR EACH ROW
+-- EXECUTE FUNCTION check_join_meeting();
 
 CREATE TRIGGER approving_meeting
 BEFORE UPDATE
@@ -424,6 +434,7 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
 -------------------------------------------------------------------------------
 
 ----------------- leave meeting -----------------------------------------------
@@ -470,6 +481,7 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
 -------------------------------------------------------------------------------
 
 ---------------------------------- approve_meeting ----------------------------
@@ -500,7 +512,7 @@ BEGIN
 
     SELECT M.did INTO meeting_room_did
     FROM MeetingRooms M
-    WHERE M.room_number = room_num
+    WHERE M.room = room_num
     AND M.floor = floor_num;
 
     SELECT E.did INTO employee_did
@@ -544,7 +556,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 -------------------------------------------------------------------------------
-
 
 
 -- Admin Functions

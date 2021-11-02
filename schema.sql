@@ -39,23 +39,23 @@ CREATE TABLE Manager (
 );
 
 CREATE TABLE MeetingRooms (
-    room_number INTEGER,
     floor INTEGER,
+    room INTEGER,
     rname TEXT NOT NULL,
     did INTEGER NOT NULL,
-    PRIMARY KEY (room_number, floor),
+    PRIMARY KEY (floor, room),
     FOREIGN KEY (did) REFERENCES Departments (did)
 );
 
 CREATE TABLE Sessions (
     date DATE,
     time INTEGER,
-    room INTEGER,
     floor INTEGER,
+    room INTEGER,
     booker_id INTEGER NOT NULL,
     approver_id INTEGER,
-    PRIMARY KEY (date, time, room, floor),
-    FOREIGN KEY (room, floor) REFERENCES MeetingRooms (room_number, floor) ON DELETE CASCADE,
+    PRIMARY KEY (date, time, floor, room),
+    FOREIGN KEY (floor, room) REFERENCES MeetingRooms (floor, room) ON DELETE CASCADE,
     FOREIGN KEY (booker_id) REFERENCES Booker (eid),
     FOREIGN KEY (approver_id) REFERENCES Manager (eid)
 );
@@ -64,10 +64,10 @@ CREATE TABLE Joins (
     eid INTEGER,
     date DATE,
     time INTEGER,
-    room INTEGER NOT NULL,
     floor INTEGER NOT NULL,
+    room INTEGER NOT NULL,
     PRIMARY KEY (eid, date, time),
-    FOREIGN KEY (date, time, room, floor) REFERENCES Sessions (date, time, room, floor) ON DELETE CASCADE,
+    FOREIGN KEY (date, time, floor, room) REFERENCES Sessions (date, time, floor, room) ON DELETE CASCADE,
     FOREIGN KEY (eid) REFERENCES Employees (eid) ON DELETE CASCADE
 );
 
@@ -83,10 +83,10 @@ CREATE TABLE HealthDeclaration (
 CREATE TABLE Updates (
     date DATE,
     new_capacity INTEGER,
-    room_number INTEGER,
     floor INTEGER,
-    manager_id INTEGER,
-    PRIMARY KEY (date, room_number, floor, manager_id),
-    FOREIGN KEY (room_number, floor) REFERENCES MeetingRooms(room_number, floor),
-    FOREIGN KEY (manager_id) REFERENCES Manager (eid)
+    room INTEGER,
+    eid INTEGER,
+    PRIMARY KEY (date, floor, room, eid),
+    FOREIGN KEY (floor, room) REFERENCES MeetingRooms(floor, room),
+    FOREIGN KEY (eid) REFERENCES Manager (eid)
 );

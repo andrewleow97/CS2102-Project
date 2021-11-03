@@ -61,7 +61,7 @@ BEGIN
     ELSE RETURN NEW;
     END IF;
 END;
-$$ LANGUAGE plpgsql
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_update_date_after_today ON Updates;
 CREATE TRIGGER check_update_date_after_today BEFORE INSERT ON Updates
@@ -224,8 +224,7 @@ BEGIN
         RAISE EXCEPTION 'Employee % does not exist', emp_id; 
     END IF;
 
-    -------- CREATE TRIGGER RESIGNED DATE MUST BE IN PRESENT/PAST -------
-
+    -- Update employees resignation date, should be in the past/present enforced by triggers
     UPDATE Employees E
     SET resigned_date = date
     WHERE E.eid = emp_id;
@@ -235,6 +234,34 @@ BEGIN
     DELETE FROM Sessions S WHERE S.booker_id = eid AND S.date > date::DATE;
 END
 $$ LANGUAGE plpgsql;
+
+---- Check RESIGNED DATE MUST BE IN PRESENT/PAST -------
+CREATE OR REPLACE FUNCTION resigned_past_date() 
+RETURNS TRIGGER AS $$
+BEGIN
+        IF NEW.resigned_date <= CURRENT_DATE THEN RETURN NEW;
+        ELSE RAISE EXCEPTION 'Resignation date % must be in the past or present', NEW.resigned_date;
+        END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS resigned_in_past ON Employees;
+CREATE TRIGGER resigned_in_past BEFORE UPDATE ON Employees 
+FOR EACH STATEMENT EXECUTE FUNCTION resigned_past_date();
+
+---- When employee resigns, remove all future records, regardless of approval status -------
+CREATE OR REPLACE FUNCTION resign_remove() 
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM Joins J WHERE J.eid = NEW.eid AND J.date > NEW.resignation_date::DATE;
+    DELETE FROM Sessions S WHERE S.booker_id = NEW.eid AND S.date > NEW.resignation_date::DATE;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS remove_future_records ON Employees;
+CREATE TRIGGER remove_future_records AFTER UPDATE ON Employees 
+FOR EACH STATEMENT EXECUTE FUNCTION resign_remove();
 
 -- Core Functions
 

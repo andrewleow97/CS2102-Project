@@ -132,17 +132,19 @@ CREATE OR REPLACE FUNCTION check_eid_order()
 RETURNS TRIGGER AS $$
 DECLARE new_eid INTEGER;
 BEGIN
-        SELECT MAX(eid) into new_eid from Employees;
+        SELECT MAX(eid) INTO new_eid FROM Employees;
         new_eid := new_eid + 1;
-        IF NEW.eid = new_eid THEN RETURN NEW;
-        ELSE RAISE EXCEPTION 'New employee ID % does not match last eid + 1 %', NEW.eid, new_eid;
+        IF new_eid IS NULL THEN RETURN NEW;
+        ELSIF NEW.eid = new_eid THEN RETURN NEW;
+        ELSE RAISE NOTICE 'New employee ID % does not match next eid %', NEW.eid, new_eid;
+		RETURN NULL;
         END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS eid_in_order ON Employees;
 CREATE TRIGGER eid_in_order BEFORE INSERT ON Employees 
-FOR EACH STATEMENT EXECUTE FUNCTION check_eid_order();
+FOR EACH ROW EXECUTE FUNCTION check_eid_order();
 
 ---- Check email format
 CREATE OR REPLACE FUNCTION check_email() 
@@ -158,7 +160,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_email_format ON Employees;
 CREATE TRIGGER check_email_format BEFORE INSERT ON Employees 
-FOR EACH STATEMENT EXECUTE FUNCTION check_email();
+FOR EACH ROW EXECUTE FUNCTION check_email();
 
 ---- Check new Junior employee is not a Booker
 CREATE OR REPLACE FUNCTION junior_not_booker() 

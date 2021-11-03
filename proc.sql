@@ -328,7 +328,7 @@ BEGIN
         RAISE EXCEPTION 'Employee % has already resigned, cannot book meeting', NEW.booker_id;
     END IF;
 
-    IF NOT EXISTS (SELECT * FROM HealthDeclaration H WHERE H.eid = NEW.booker_id AND H.date = NEW.date AND H.fever = FALSE) THEN
+    IF NOT EXISTS (SELECT * FROM HealthDeclaration H WHERE H.eid = NEW.booker_id AND H.date = CURRENT_DATE AND H.fever = FALSE) THEN
         RAISE EXCEPTION 'Employee % has not declared daily health declaration or is having a fever', NEW.booker_id;
     END IF;
 
@@ -400,14 +400,24 @@ FOR EACH ROW EXECUTE FUNCTION check_delete_meeting();
 -- Add Health Declaration for an Employee
 CREATE OR REPLACE PROCEDURE declare_health (emp_id INTEGER, date DATE, temperature NUMERIC)
 AS $$
--------- CREATE TRIGGER FOR fever after insert/update healthdeclaration----------
-DECLARE have_fever BOOLEAN := false; 
 BEGIN
-	IF temperature > 37.5 THEN have_fever := true;
-	END IF;
-    INSERT INTO HealthDeclaration VALUES (emp_id, date, temperature, have_fever);
+    INSERT INTO HealthDeclaration VALUES (emp_id, date, temperature, 'false');
 END
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION check_for_fever()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.temperature > 37.5 THEN 
+        NEW.fever = 'true';
+    ELSE RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_for_fever_health_declaration ON HealthDeclaration;
+CREATE TRIGGER check_for_fever_health_declaration BEFORE INSERT ON HealthDeclaration
+FOR EACH STATEMENT EXECUTE FUNCTION check_for_fever();
 
 -- Contact Tracing for an Employee
 CREATE OR REPLACE FUNCTION contact_tracing (emp_id INTEGER, curr_date DATE)

@@ -110,11 +110,11 @@ INSERT INTO HealthDeclaration (eid, date, temperature, fever) VALUES
   (12, CURRENT_DATE, 37.4, 'false'),
   (13, CURRENT_DATE, 36.7, 'false'),
   (14, CURRENT_DATE, 36.5, 'false'),
-  (15, CURRENT_DATE, 38.0, 'true'),
+  (15, CURRENT_DATE, 36.0, 'false'),
   (16, CURRENT_DATE, 36.2, 'false'),
   (17, CURRENT_DATE, 36.2, 'false'),
   (18, CURRENT_DATE, 36.0, 'false'),
-  (19, CURRENT_DATE, 37.5, 'true'),
+  (19, CURRENT_DATE, 36.3, 'false'),
   (20, CURRENT_DATE, 36.7, 'false'),
   (21, CURRENT_DATE, 36.7, 'false'),
   (22, CURRENT_DATE, 37.4, 'false'),
@@ -125,19 +125,7 @@ INSERT INTO HealthDeclaration (eid, date, temperature, fever) VALUES
   (27, CURRENT_DATE, 36.2, 'false'),
   (28, CURRENT_DATE, 36.0, 'false'),
   (29, CURRENT_DATE, 37.5, 'true'),
-  (30, CURRENT_DATE, 36.7, 'false'),
-
-  -- HealthDeclaration for Bookers
-  (11, CURRENT_DATE + 1, 36.5, 'false'),
-  (21, CURRENT_DATE + 2, 36.5, 'false'),
-  (15, CURRENT_DATE + 3, 36.5, 'false'),
-  (23, CURRENT_DATE + 3, 36.5, 'false'),
-  (24, CURRENT_DATE + 4, 36.5, 'false'),
-  (12, CURRENT_DATE + 5, 36.5, 'false'),
-  (23, CURRENT_DATE + 6, 36.5, 'false'),
-  (18, CURRENT_DATE + 7, 36.5, 'false'),
-  (11, CURRENT_DATE + 8, 36.5, 'false'),
-  (15, CURRENT_DATE + 9, 36.5, 'false')
+  (30, CURRENT_DATE, 36.7, 'false')
 ;
 
 INSERT INTO Sessions (date, time, floor, room, booker_id, approver_id) VALUES 

@@ -56,8 +56,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION check_update_date()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.date >= CURRENT_DATE THEN 
-        RAISE EXCEPTION 'Update date should be in present or future, input date is %', NEW.date;
+    IF NEW.date < CURRENT_DATE THEN 
+        RAISE NOTICE 'Update date should be in present or future, input date is %', NEW.date;
+        RETURN NULL;
     ELSE RETURN NEW;
     END IF;
 END;
@@ -65,7 +66,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_update_date_after_today ON Updates;
 CREATE TRIGGER check_update_date_after_today BEFORE INSERT ON Updates
-FOR EACH STATEMENT EXECUTE FUNCTION check_update_date();
+FOR EACH ROW EXECUTE FUNCTION check_update_date();
 
 -- Cancel all future meetings beyond date where participants > capacity regardless of approval status
 CREATE OR REPLACE FUNCTION remove_meetings()
@@ -73,26 +74,26 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Selects meetings from sessions joins j to get session with participant count > new capacity
     WITH ExceedCap AS
-            (SELECT S.floor, S.room, S.date, S.time, COUNT(*)
-            FROM Sessions S JOIN Joins J 
-            ON S.date = J.date AND S.time = J.time AND S.floor = J.floor AND S.room = J.room 
-            WHERE S.date > NEW.date -- Change this if want to include same day meetings
-            GROUP BY (S.floor, S.room, S.date, S.time)
-            HAVING COUNT(*) > NEW.new_capacity)
+        (SELECT S.floor, S.room, S.date, S.time, COUNT(*)
+        FROM Sessions S JOIN Joins J 
+        ON S.date = J.date AND S.time = J.time AND S.floor = J.floor AND S.room = J.room 
+        WHERE S.date > NEW.date -- Change this if want to include same day meetings
+        GROUP BY (S.floor, S.room, S.date, S.time)
+        HAVING COUNT(*) > NEW.new_capacity)
 
-        DELETE FROM Sessions S 
-        WHERE S.floor IN (SELECT E.floor FROM ExceedCap E)
-            AND S.room IN (SELECT E.room FROM ExceedCap E) 
-            AND S.date IN (SELECT E.date FROM ExceedCap E)
-            AND S.time IN (SELECT E.time FROM ExceedCap E);
-        RETURN NEW;
+    DELETE FROM Sessions S 
+    WHERE S.floor IN (SELECT E.floor FROM ExceedCap E)
+        AND S.room IN (SELECT E.room FROM ExceedCap E) 
+        AND S.date IN (SELECT E.date FROM ExceedCap E)
+        AND S.time IN (SELECT E.time FROM ExceedCap E);
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 
 DROP TRIGGER IF EXISTS remove_meetings_exceeding ON Updates;
 CREATE TRIGGER remove_meetings_exceeding AFTER INSERT ON Updates
-FOR EACH STATEMENT EXECUTE FUNCTION remove_meetings(); -- statement for execute only once
+FOR EACH ROW EXECUTE FUNCTION remove_meetings(); 
 
 
 -- Add Employee
@@ -127,49 +128,46 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
----- Check eid format
-CREATE OR REPLACE FUNCTION check_eid_order() 
+CREATE OR REPLACE FUNCTION check_employee_format() 
 RETURNS TRIGGER AS $$
 DECLARE new_eid INTEGER;
-BEGIN
-        SELECT MAX(eid) INTO new_eid FROM Employees;
-        new_eid := new_eid + 1;
-        IF new_eid IS NULL THEN RETURN NEW;
-        ELSIF NEW.eid = new_eid THEN RETURN NEW;
-        ELSE RAISE NOTICE 'New employee ID % does not match next eid %', NEW.eid, new_eid;
-		RETURN NULL;
-        END IF;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS eid_in_order ON Employees;
-CREATE TRIGGER eid_in_order BEFORE INSERT ON Employees 
-FOR EACH ROW EXECUTE FUNCTION check_eid_order();
-
----- Check email format
-CREATE OR REPLACE FUNCTION check_email() 
-RETURNS TRIGGER AS $$
 DECLARE new_email TEXT;
 BEGIN
-        new_email := CONCAT(NEW.ename, NEW.eid::TEXT, '@gmail.com');
-        IF NEW.email = new_email THEN RETURN NEW;
-        ELSE RAISE EXCEPTION 'New employee email % does not match email format %', NEW.email, new_email;
-        END IF;
+    ---- Check eid format
+    SELECT MAX(eid) INTO new_eid FROM Employees;
+    new_eid := new_eid + 1;
+    
+    IF new_eid IS NULL THEN
+        RETURN NEW;
+    ELSIF NEW.eid = new_eid THEN
+        RETURN NEW;
+    ELSE
+        RAISE NOTICE 'New employee ID % does not match next eid %', NEW.eid, new_eid;
+        RETURN NULL;
+    END IF;
+
+    ---- Check email format
+    new_email := CONCAT(NEW.ename, NEW.eid::TEXT, '@gmail.com');
+    IF NEW.email = new_email THEN RETURN NEW;
+    ELSE RAISE NOTICE 'New employee email % does not match email format %', NEW.email, new_email;
+    RETURN NULL;
+
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS check_email_format ON Employees;
-CREATE TRIGGER check_email_format BEFORE INSERT ON Employees 
-FOR EACH ROW EXECUTE FUNCTION check_email();
+DROP TRIGGER IF EXISTS check_employee_format_in_order ON Employees;
+CREATE TRIGGER check_employee_format_in_order BEFORE INSERT ON Employees 
+FOR EACH ROW EXECUTE FUNCTION check_employee_format();
 
 ---- Check new Junior employee is not a Booker
 CREATE OR REPLACE FUNCTION junior_not_booker() 
 RETURNS TRIGGER AS $$
 BEGIN
-        IF NEW.eid NOT IN (SELECT eid FROM Booker) THEN RETURN NEW;
-        ELSE RAISE NOTICE 'Employee % is already a Booker, and cannot be a Junior', NEW.eid;
-        RETURN NULL;
-        END IF;
+    IF NEW.eid NOT IN (SELECT eid FROM Booker) THEN RETURN NEW;
+    ELSE RAISE NOTICE 'Employee % is already a Booker, and cannot be a Junior', NEW.eid;
+    RETURN NULL;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -235,9 +233,6 @@ BEGIN
     SET resigned_date = date
     WHERE E.eid = emp_id;
 
-    -------- CREATE TRIGGER RESIGNED DATE UPDATED REMOVE ALL FUTURE RECORDS -------
-    DELETE FROM Joins J WHERE J.eid = eid AND J.date > date::DATE;
-    DELETE FROM Sessions S WHERE S.booker_id = eid AND S.date > date::DATE;
 END
 $$ LANGUAGE plpgsql;
 
@@ -256,12 +251,16 @@ DROP TRIGGER IF EXISTS resigned_in_past ON Employees;
 CREATE TRIGGER resigned_in_past BEFORE UPDATE ON Employees 
 FOR EACH ROW EXECUTE FUNCTION resigned_past_date();
 
----- When employee resigns, remove all future records, regardless of approval status -------
-CREATE OR REPLACE FUNCTION resign_remove() 
+
+----approval status --------
+CREATE OR REPLACE FUNCTION resign_remove()
 RETURNS TRIGGER AS $$
 BEGIN
-    DELETE FROM Joins J WHERE J.eid = NEW.eid AND J.date > NEW.resignation_date::DATE;
-    DELETE FROM Sessions S WHERE S.booker_id = NEW.eid AND S.date > NEW.resignation_date::DATE;
+    ALTER TABLE Joins DISABLE TRIGGER employee_leaving;
+    DELETE FROM Joins J WHERE J.eid = NEW.eid AND J.date > NEW.resignation_date::DATE AND J.date >= CURRENT_DATE;
+    ALTER TABLE Joins ENABLE TRIGGER employee_leaving;
+    DELETE FROM Sessions S WHERE S.booker_id = NEW.eid AND S.date > NEW.resignation_date::DATE AND S.date >= CURRENT_DATE;
+    
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -357,7 +356,7 @@ DROP TRIGGER IF EXISTS booker_joins_meeting ON Sessions;
 CREATE TRIGGER booker_joins_meeting AFTER INSERT ON Sessions
 FOR EACH ROW EXECUTE FUNCTION booker_joins_meeting();
 
--- Unbook Room
+-- Room
 -- 1. If this is not the employee doing the booking, the employee is not allowed to remove booking
 CREATE OR REPLACE PROCEDURE unbook_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, unbooker_id INT)
 AS $$
@@ -410,21 +409,21 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.temperature > 37.5 THEN 
         NEW.fever = 'true';
-    ELSE RETURN NEW;
     END IF;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_for_fever_health_declaration ON HealthDeclaration;
-CREATE TRIGGER check_for_fever_health_declaration BEFORE INSERT ON HealthDeclaration
-FOR EACH STATEMENT EXECUTE FUNCTION check_for_fever();
+CREATE TRIGGER check_for_fever_health_declaration BEFORE INSERT OR UPDATE ON HealthDeclaration
+FOR EACH ROW EXECUTE FUNCTION check_for_fever();
 
 -- Contact Tracing for an Employee
 CREATE OR REPLACE FUNCTION contact_tracing (emp_id INTEGER, curr_date DATE)
 RETURNS TABLE(close_contacts_eid INTEGER)
 AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM HealthDeclaration H WHERE H.eid = emp_id AND H.fever = 'true' AND H.date = curr_date) THEN 
+    IF NOT EXISTS (SELECT 1 FROM HealthDeclaration H WHERE H.eid = emp_id AND H.fever = TRUE AND H.date = curr_date) THEN 
         RAISE EXCEPTION 'Employee % does not have fever or did not make a health declaration on this date %.', emp_id, curr_date; 
     END IF;
 
@@ -440,9 +439,11 @@ BEGIN
             AND J.room = S.room AND J.floor = S.floor
             AND J2.date = S.date AND J2.time = S.time
             AND J2.room = S.room AND J2.floor = S.floor
-            AND J.eid <> j2.eid AND s.approver_id IS NOT NULL 
-            AND emp_id = j.eid AND s.date BETWEEN curr_date - 3 AND curr_date;
+            AND J.eid <> J2.eid AND S.approver_id IS NOT NULL 
+            AND emp_id = J.eid AND S.date BETWEEN curr_date - 3 AND curr_date;
         
+    ALTER TABLE Joins DISABLE TRIGGER employee_leaving;
+    
     -- Remove bookings where the employee is the booker, approved or not.
     DELETE FROM Sessions S WHERE S.booker_id = emp_id AND curr_date <= S.date;
     
@@ -459,15 +460,24 @@ BEGIN
     WHERE S.booker_id IN (SELECT eid FROM close_contacts_list) 
         AND S.date BETWEEN curr_date AND curr_date + 7;
 
+    ALTER TABLE Joins ENABLE TRIGGER employee_leaving;
+    
     RETURN QUERY SELECT * FROM close_contacts_list;
 END
 $$ LANGUAGE plpgsql;
 
-------------------------------- trigger function for join meeting --------------------------------
+-- Join Meeting Trigger
+-- 1. Employee must have done health declaration and has no fever on current day
+-- 2. Employee can only join future meeting
+-- 3. Any employee can join a booked meeting
+-- 4. Employee cannot join meeting that is already approved
+-- 5. Employee can join meeting only if max capacity not reached
+-- 6. Resigned employee cannot join meeting
 CREATE OR REPLACE FUNCTION check_join_meeting()
 RETURNS TRIGGER AS $$
 DECLARE 
     is_fever BOOLEAN;
+    employee_resigned_date DATE;
     meeting_date DATE;
     meeting_time INT;
     meeting_room INT;
@@ -477,10 +487,7 @@ DECLARE
     current_capacity INT := 0;
 
 BEGIN
-    SELECT HD.fever INTO is_fever
-    FROM HealthDeclaration HD
-    WHERE NEW.eid = HD.eid
-        AND HD.date = CURRENT_DATE;
+    SELECT HD.fever INTO is_fever FROM HealthDeclaration HD WHERE NEW.eid = HD.eid AND HD.date = CURRENT_DATE;
 
     IF is_fever = TRUE THEN
         RAISE NOTICE 'Employee % has fever, unable to join meeting', NEW.eid;
@@ -489,29 +496,19 @@ BEGIN
         RAISE NOTICE 'Employee % has not done health declaration, unable to join meeting', NEW.eid;
         RETURN NULL;
     END IF;
-
+    
     SELECT S.date, S.time, S.room, S.floor, S.approver_id
     INTO meeting_date, meeting_time, meeting_room, meeting_floor, meeting_approver_id
     FROM Sessions S
     WHERE S.date = NEW.date AND S.time = NEW.time 
         AND S.room = NEW.room AND S.floor = NEW.floor;
 
-    IF meeting_date IS NULL OR meeting_time IS NULL THEN
-        RAISE NOTICE 'meeting on % % at floor % room % does not exist', NEW.date, NEW.time, NEW.floor, NEW.room;
-        RETURN NULL;
-    
-    END IF;
-
-    -- RAISE NOTICE 'current date = %, current time = %',
-    --     CURRENT_DATE, CURRENT_TIME;
     IF meeting_date < CURRENT_DATE THEN
-        RAISE NOTICE 'meeting at % % has passed, unable to join',
-            meeting_date, meeting_time;
+        RAISE NOTICE 'meeting at % % has passed, unable to join', meeting_date, meeting_time;
         RETURN NULL;
     ELSE
         IF meeting_date = CURRENT_DATE AND (TIME '00:00:00' + meeting_time * INTERVAL '1 hour') < CURRENT_TIME THEN
-            RAISE NOTICE 'meeting has at % % has passed, unable to join',
-            meeting_time, meeting_date;
+            RAISE NOTICE 'meeting has at % % has passed, unable to join', meeting_time, meeting_date;
             RETURN NULL;
         END IF;
     END IF;
@@ -521,51 +518,62 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    -- get the latest capacity of the meeting room
-    -- WITH DatesBeforeMeeting AS (
-    --     SELECT date AS prev_date
-    --     FROM Updates
-    --     WHERE date <= meeting_date
-    --     AND room = meeting_room
-    --     AND floor = meeting_floor
-    -- )
-    -- SELECT U.new_capacity INTO meeting_capacity
-    -- FROM Updates U
-    -- WHERE U.room = meeting_room
-    -- AND U.floor = meeting_floor
-    -- AND U.date = (
-    --     SELECT MAX(prev_date)
-    --     FROM DatesBeforeMeeting
-    -- )
-    -- ;
+    SELECT E.resigned_date INTO employee_resigned_date
+    FROM Employees E
+    WHERE E.eid = NEW.eid;
+
+    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < CURRENT_DATE THEN
+        RAISE NOTICE 'employee % already resigned, cannot approve meeting', NEW.eid;
+        RETURN NULL;
+    END IF; 
 
     WITH RoomsWithCapacity AS
-    (SELECT * FROM find_room_capacity(meeting_date))
+        (SELECT * FROM find_room_capacity(meeting_date))
     SELECT R.capacity INTO meeting_capacity
     FROM RoomsWithCapacity R
     WHERE R.floor = meeting_floor
-    AND R.room = meeting_room;
+        AND R.room = meeting_room;
 
     SELECT COUNT(eid) INTO current_capacity
     FROM Joins 
     WHERE date = meeting_date AND time = meeting_time
-    AND room = meeting_room AND floor = meeting_floor
+        AND room = meeting_room AND floor = meeting_floor
     GROUP BY (date, time, floor, room);
 
-    RAISE NOTICE 'current capacity = %, max capacity = %',
-        current_capacity, meeting_capacity;
+    --RAISE NOTICE 'current capacity = %, max capacity = %', current_capacity, meeting_capacity;
 
     IF current_capacity + 1 > meeting_capacity THEN
         RAISE NOTICE 'meeting on % % at floor % room % is full, unable to join', NEW.date, NEW.time, NEW.floor, NEW.room;
         RETURN NULL;
-    ELSE
-        RAISE NOTICE 'Employee % joined meeting on % % at floor % room %', NEW.eid, NEW.date, NEW.time, NEW.floor, NEW.room;
-        RETURN NEW;
     END IF;
+    
+    --RAISE NOTICE 'Employee % joined meeting on % % at floor % room %', NEW.eid, NEW.date, NEW.time, NEW.floor, NEW.room;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-------------------------------- trigger function for leave meeting -------------------------------
+DROP TRIGGER IF EXISTS employee_joining ON Joins;
+CREATE TRIGGER employee_joining BEFORE INSERT ON Joins
+FOR EACH ROW EXECUTE FUNCTION check_join_meeting();
+
+-- Join Meeting
+CREATE OR REPLACE FUNCTION join_meeting (eid INT, meeting_date DATE, start_hour INT, end_hour INT, floor INT, room INT)
+RETURNS VOID AS $$
+DECLARE 
+BEGIN
+    IF start_hour >= end_hour THEN
+        RETURN;
+    END IF;
+
+    for counter in start_hour..(end_hour-1) LOOP
+        INSERT INTO Joins VALUES (eid, meeting_date, counter, floor, room);
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Leave Meeting Trigger
+-- 1. Employee cannot leave meeting that is already approved (not applicable if they have fever, is close contact or has resigned)
+-- 2. Employee can only leave from a future meeting
 CREATE OR REPLACE FUNCTION check_leave_meeting()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -581,27 +589,18 @@ BEGIN
     WHERE S.date = OLD.date AND S.time = OLD.time 
         AND S.room = OLD.room AND S.floor = OLD.floor;
 
-    -- RAISE NOTICE 'date: % time: % floor: % room: % approver: %', 
-    --     meeting_date, meeting_time, meeting_floor, meeting_room, meeting_approver_id;
-    -- IF meeting_date IS NULL OR meeting_time IS NULL THEN
-    --     RAISE NOTICE 'meeting on % % at floor % room % does not exist', OLD.date, OLD.time, OLD.floor, OLD.room;
-    --     RETURN NULL;
-    -- END IF;
-
     IF meeting_date < CURRENT_DATE THEN
-        RAISE NOTICE 'meeting at % % has passed, unable to leave',
-            meeting_date, meeting_time;
+        RAISE NOTICE 'meeting at % % has passed, unable to leave', meeting_date, meeting_time;
         RETURN NULL;
     ELSE
         IF meeting_date = CURRENT_DATE AND (TIME '00:00:00' + meeting_time * INTERVAL '1 hour') < CURRENT_TIME THEN
-            RAISE NOTICE 'meeting has at % % has passed, unable to leave',
-            meeting_time, meeting_date;
+            RAISE NOTICE 'meeting at % % has passed, unable to leave', meeting_date, meeting_time;
             RETURN NULL;
         END IF;
     END IF;
 
     IF meeting_approver_id IS NOT NULL THEN
-        RAISE NOTICE 'meeting on % % at floor % room % approved, unable leave', OLD.date, OLD.time, OLD.floor, OLD.room;
+        RAISE NOTICE 'meeting on % % at floor % room % approved, unable to leave', OLD.date, OLD.time, OLD.floor, OLD.room;
         RETURN NULL;
     END IF;
 
@@ -610,13 +609,40 @@ BEGIN
 END;
 
 $$ LANGUAGE plpgsql;
---------------------------------------------------------------------------------------------------
-------------------------------- trigger function for approve meeting -----------------------------
+
+DROP TRIGGER IF EXISTS employee_leaving ON Joins;
+CREATE TRIGGER employee_leaving BEFORE DELETE ON Joins
+FOR EACH ROW EXECUTE FUNCTION check_leave_meeting();
+
+--Leave Meeting
+CREATE OR REPLACE FUNCTION leave_meeting (employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT)
+RETURNS VOID AS $$
+DECLARE
+BEGIN
+    IF start_hour >= end_hour THEN
+        RETURN;
+    END IF;
+
+    for counter in start_hour..(end_hour-1) LOOP
+        DELETE FROM Joins J
+        WHERE J.time = counter
+            AND J.eid = employee_id AND J.date = meeting_date
+            AND J.room = room_num AND J.floor = floor_num;
+    END LOOP;
+END;
+
+$$ language plpgsql;
+
+-- Approve Meeting Trigger
+-- 1. Only manager from the same department can approve a meeting
+-- 2. If meeting is not approved (rejected), remove the meeting session
+-- 3. Manager can only approve future meetings
+-- 4. If manager resigned, cannot approve
+-- 5. If meeting already approved, cannot approve again
 CREATE OR REPLACE FUNCTION check_approve_meeting()
 RETURNS TRIGGER AS $$
 DECLARE
     employee_resigned_date DATE;
-    is_fever BOOLEAN;
     meeting_date DATE;
     meeting_time INT;
     meeting_room INT;
@@ -632,30 +658,17 @@ BEGIN
         AND S.room = NEW.room AND S.floor = NEW.floor;
 
     IF meeting_date < CURRENT_DATE THEN
-        RAISE NOTICE 'meeting at % % has passed, unable to approve',
-            meeting_date, meeting_time;
+        RAISE NOTICE 'meeting at % % has passed, unable to approve', meeting_date, meeting_time;
         RETURN NULL;
     ELSE
         IF meeting_date = CURRENT_DATE AND (TIME '00:00:00' + meeting_time * INTERVAL '1 hour') < CURRENT_TIME THEN
-            RAISE NOTICE 'meeting has at % % has passed, unable to approve',
-            meeting_time, meeting_date;
+            RAISE NOTICE 'meeting has at % % has passed, unable to approve', meeting_time, meeting_date;
             RETURN NULL;
         END IF;
     END IF;
 
     IF meeting_approver_id IS NOT NULL THEN
         RAISE NOTICE 'meeting on % % at floor % room % already approved, unable to approve again', NEW.date, NEW.time, NEW.floor, NEW.room;
-        RETURN NULL;
-    END IF;
-
-    -- no one approved meeting yet, check if is manager
-    SELECT M.eid INTO meeting_approver_id
-    FROM Manager M
-    WHERE M.eid = NEW.approver_id;
-
-    IF meeting_approver_id IS NULL THEN
-        RAISE NOTICE 'Employee % not a manager, unable to approve meeting',
-            NEW.approver_id;
         RETURN NULL;
     END IF;
 
@@ -668,244 +681,67 @@ BEGIN
         RETURN NULL;
     END IF; 
 
-    SELECT M.did INTO meeting_room_did
-    FROM MeetingRooms M
-    WHERE M.room = NEW.room
-    AND M.floor = NEW.floor;
+    SELECT M.did INTO meeting_room_did FROM MeetingRooms M WHERE M.room = NEW.room AND M.floor = NEW.floor;
 
     IF meeting_room_did <> employee_did THEN
-        RAISE NOTICE 'approver eid % did % and meeting room % do not belong to same 
-        department, cannot approve meeting', NEW.approver_id, employee_did, meeting_room_did;
+        RAISE NOTICE 'approver eid % did % and meeting room % do not belong to same department, cannot approve meeting', NEW.approver_id, employee_did, meeting_room_did;
         RETURN NULL;
     END IF;
 
-    SELECT HD.fever INTO is_fever
-    FROM HealthDeclaration HD
-    WHERE NEW.approver_id = HD.eid
-    AND HD.date = CURRENT_DATE;
-
-    IF is_fever = TRUE THEN
-        RAISE NOTICE 'Employee % has fever, unable to join meeting', NEW.approver_id;
-        RETURN NULL;
-    ELSIF is_fever IS NULL THEN
-        RAISE NOTICE 'Employee % has not done health declaration, unable to join meeting', NEW.approver_id;
-        RETURN NULL;
-    END IF;
-
-    RAISE NOTICE 'Manager eid % approved booking for meeting room on % % at floor % room %', 
-    NEW.approver_id, NEW.date, NEW.time, NEW.floor, NEW.room;
+    RAISE NOTICE 'Manager eid % approved booking for meeting room on % % at floor % room %', NEW.approver_id, NEW.date, NEW.time, NEW.floor, NEW.room;
     RETURN NEW;
 
 END;
 $$ LANGUAGE plpgsql;
 
----------------------creating triggers ------------------------
-DROP TRIGGER IF EXISTS employee_joining
-ON Joins;
+DROP TRIGGER IF EXISTS approving_meeting ON Sessions;
+CREATE TRIGGER approving_meeting BEFORE UPDATE ON Sessions
+FOR EACH ROW EXECUTE FUNCTION check_approve_meeting();
 
-DROP TRIGGER IF EXISTS employee_leaving
-ON Joins;
-
-DROP TRIGGER IF EXISTS approving_meeting
-ON Sessions;
-
-CREATE TRIGGER employee_joining
-BEFORE INSERT ON Joins
-FOR EACH ROW
-EXECUTE FUNCTION check_join_meeting();
-
-CREATE TRIGGER employee_leaving
-BEFORE DELETE ON Joins
-FOR EACH ROW
-EXECUTE FUNCTION check_leave_meeting();
-
-CREATE TRIGGER approving_meeting
-BEFORE UPDATE ON Sessions
-FOR EACH ROW
-EXECUTE FUNCTION check_approve_meeting();
------------------ join_meeting ----------------------------------------------
--- 1. Employee must have done health declaration and has no fever on current day
--- 2. Employee can only join future meeting
--- 3. Any employee can join a booked meeting
--- 4. Employee cannot join meeting that is already approved
--- 5. Employee can join meeting only if max capacity not reached
-CREATE OR REPLACE FUNCTION join_meeting 
-(eid INT, meeting_date DATE, start_hour INT, end_hour INT, floor INT, room INT)
+-- Approve Meeting
+CREATE OR REPLACE FUNCTION approve_meeting  (employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT, status CHAR(1))
 RETURNS VOID AS $$
 DECLARE 
-    curr_hour INT := start_hour;
-BEGIN
-    IF start_hour > end_hour THEN
-        RETURN;
-    END IF;
-
-    LOOP
-        EXIT WHEN curr_hour > end_hour;
-        INSERT INTO Joins
-        VALUES (eid, meeting_date, curr_hour, floor, room);
-        curr_hour := curr_hour + 1;
-    END LOOP;
-END;
-$$ LANGUAGE plpgsql;
-
--------------------------------------------------------------------------------
-
-
------------------ leave meeting -----------------------------------------------
--- 1. Employee cannot leave meeting that is already approved
--- 2. Employee can only leave from a future meeting
-CREATE OR REPLACE FUNCTION leave_meeting
-(employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT)
-RETURNS VOID AS $$
-DECLARE
-    curr_hour INT:= start_hour;
-BEGIN
-    IF start_hour > end_hour THEN
-        RETURN;
-    END IF;
-    LOOP
-        EXIT WHEN curr_hour > end_hour;
-        DELETE FROM Joins J
-        WHERE J.eid = employee_id AND J.date = meeting_date
-        AND J.time = curr_hour
-        AND J.room = room_num AND J.floor = floor_num;
-        curr_hour := curr_hour + 1;
-    END LOOP;
-END;
-
-$$ language plpgsql;
--------------------------------------------------------------------------------
-
------------------ leave meeting -----------------------------------------------
--- 1. Employee cannot leave meeting that is already approved
--- 2. Employee can only leave from a future meeting
--- CREATE OR REPLACE FUNCTION leave_meeting
--- (employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT)
--- RETURNS VOID AS $$
--- DECLARE
---     curr_hour INT:= start_hour;
---     meeting_approver_id INT;
--- BEGIN
-
---     IF meeting_date < CURRENT_DATE THEN
---         RAISE NOTICE 'meeting on % already passed, unable to leave meeting', meeting_date;
---         RETURN;
---     ELSE
---         IF meeting_date = CURRENT_DATE AND (TIME'00:00:00' + start_hour * INTERVAL '1hour') < CURRENT_TIME THEN
---             RAISE NOTICE 'meeting on % already passed, unable to leave meeting', meeting_date;
---             RETURN;
---         END IF;
---     END IF;
-
---     LOOP
---         EXIT WHEN curr_hour > end_hour;
-
---         SELECT S.approver_id INTO meeting_approver_id
---         FROM Joins J, Sessions S
---         WHERE J.eid = employee_id
---         AND J.date = S.date AND J.time = S.time 
---         AND J.room = S.room AND J.floor = S.floor;
-
---         --- can be meeting does not exist or remove that employee
---         IF meeting_approver_id IS NULL THEN
---             DELETE FROM Joins J
---             WHERE J.eid = employee_id AND J.date = meeting_date
---             AND J.time = curr_hour
---             AND J.room = room_num AND J.floor = floor_num;
---             RAISE NOTICE 'meeting does not exist or employee % removed', employee_id;
---         ELSE
---             RAISE NOTICE 'meeting on % % at floor % room % already approved', meeting_date, curr_hour, floor_num, room_num;
---         END IF;
---         curr_hour := curr_hour + 1;
---     END LOOP;
--- END;
--- $$ LANGUAGE plpgsql;
-
--------------------------------------------------------------------------------
-
----------------------------------- approve_meeting ----------------------------
--- 1. Only manager from the same department can approve a meeting
--- 2. If meeting is not approved (rejected), remove the meeting session
--- 3. Manager can only approve future meetings
--- 4. If manager resigned, cannot approve
--- 5. If meeting already approved, cannot approve again
-CREATE OR REPLACE FUNCTION approve_meeting 
-(employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT, status CHAR(1))
-RETURNS VOID AS $$
-DECLARE 
-    curr_hour INT := start_hour;
-    meeting_approver_id INT;
     employee_did INT;
     meeting_room_did INT;
-
 BEGIN
-    -- SELECT M.eid INTO meeting_approver_id
-    -- FROM Manager M
-    -- WHERE M.eid = employee_id;
-
-    -- IF meeting_approver_id IS NULL THEN
-    --     RAISE NOTICE 'Employee % not a manager, unable to approve meeting',
-    --         employee_id;
-    --     RETURN;
-    -- END IF;
-
-    IF start_hour > end_hour THEN
+    IF start_hour >= end_hour THEN
         RETURN;
     END IF;
 
-    LOOP
-        EXIT WHEN curr_hour > end_hour;
-        
+    for counter in start_hour..(end_hour-1) LOOP
         IF lower(status) = 'f' THEN
             SELECT M.did INTO meeting_room_did
             FROM MeetingRooms M
             WHERE M.room = room_num
-            AND M.floor = floor_num;
+                AND M.floor = floor_num;
 
             SELECT E.did INTO employee_did
             FROM Employees E
             WHERE E.eid = employee_id;
 
             IF meeting_room_did <> employee_did THEN
-                RAISE NOTICE 'approver and meeting room do not belong to same department, cannot approve meeting';
+                RAISE NOTICE 'Approver and meeting room do not belong to same department, cannot approve meeting';
                 RETURN;
             END IF;
 
-            RAISE NOTICE 'Manager eid % from dept % rejected booking for meeting room from dpt 
-            on % at floor % room %', employee_id, employee_did, meeting_room_did, floor_num, room_num;
+            RAISE NOTICE 'Manager eid % from dept % rejected booking for meeting room from dept % on % at floor % room %',
+                employee_id, employee_did, meeting_room_did, meeting_date, floor_num, room_num;
 
             DELETE FROM Sessions
-            WHERE date = meeting_date AND time = curr_hour
-            AND room = room_num AND floor = floor_num;
+            WHERE date = meeting_date AND time = counter
+                AND room = room_num AND floor = floor_num;
             
             RAISE NOTICE 'Session removed';
         ELSE
             UPDATE Sessions
-            SET date = meeting_date,
-            time = curr_hour,
-            room = room_num, floor = floor_num, approver_id = employee_id
-            WHERE date = meeting_date AND time = curr_hour
-            AND room = room_num and floor = floor_num;
+            SET date = meeting_date, time = counter, room = room_num, floor = floor_num, approver_id = employee_id
+            WHERE date = meeting_date AND time = counter
+                AND room = room_num AND floor = floor_num;
         END IF;
-        curr_hour := curr_hour + 1;
     END LOOP;            
 END;
 $$ LANGUAGE plpgsql;
--------------------------------------------------------------------------------
--- Helper function to find room capacity of meeting room at specified date
-CREATE OR REPLACE FUNCTION find_room_capacity(search_date DATE)
-RETURNS TABLE(floor INT, room INT, did INT, capacity INT) AS $$
-BEGIN
-    RETURN QUERY WITH FilteredAndSortedUpdates AS
-        (SELECT *, ROW_NUMBER() OVER (PARTITION BY U.floor, U.room ORDER BY date DESC) AS row_num
-        FROM Updates U
-        WHERE U.date <= search_date::date)
-    SELECT M.floor, M.room, M.did, F.new_capacity
-    FROM FilteredAndSortedUpdates F, MeetingRooms M
-    WHERE row_num = 1 AND F.room = M.room AND F.floor = M.floor;
-END
-$$ LANGUAGE plpgsql;
-
 
 -- Admin Functions
 
@@ -915,16 +751,16 @@ CREATE OR REPLACE FUNCTION non_compliance(start_date DATE, end_date DATE)
 RETURNS TABLE(employee_id INTEGER, number_of_days INTEGER) AS $$
 DECLARE curr_date DATE := start_date;
 BEGIN
-    -- Creating temporary table to hold employee id values
-    DROP TABLE IF EXISTS non_compliant_list;
-    CREATE TEMPORARY TABLE non_compliant_list(
-        eid INTEGER
-    );
-
     -- Date checking if valid
     IF end_date < start_date THEN 
         RAISE EXCEPTION 'End date % is before start date %', end_date, start_date;
     END IF;
+    
+    -- Creating temporary table to hold employee id values
+    DROP TABLE IF EXISTS non_compliant_list;
+    CREATE TEMPORARY TABLE non_compliant_list(
+        eid INTEGER
+    );    
 
     WHILE curr_date <= end_date LOOP -- dates inclusive
         -- List of employees on this date that do not have a health declaration
@@ -949,7 +785,11 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, eid INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, approved BOOLEAN) AS $$
 BEGIN
-    RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.approver_id IS NOT NULL
+    IF NOT EXISTS (SELECT * FROM Booker B WHERE B.eid = emp_id) THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.approver_id IS NOT NULL -- (true if approver id is not null, false if it is null)
     FROM Sessions S
     WHERE S.date >= start_date AND eid = S.booker_id
     ORDER BY S.date ASC, S.time ASC;
@@ -961,6 +801,10 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION view_future_meeting(start_date DATE, emp_id INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER) AS $$
 BEGIN
+    IF NOT EXISTS (SELECT * FROM Employees E WHERE E.eid = emp_id) THEN
+        RETURN;
+    END IF;
+
     RETURN QUERY SELECT S.floor, S.room, S.date, S.time 
     -- Check meetings where employee is attending
 	FROM Sessions S JOIN Joins J 
@@ -969,7 +813,7 @@ BEGIN
        AND S.room = J.room 
        AND S.floor = J.floor 
        AND J.eid = emp_id
-    -- Check approved meeting and later start date
+    -- Check approved meeting from given start date onwards
     WHERE S.approver_id IS NOT NULL AND S.date >= start_date 
     ORDER BY S.date ASC, S.time ASC;
 END;
@@ -993,7 +837,7 @@ BEGIN
     ON S.booker_id = E.eid
     WHERE E.did = (SELECT did FROM Employees WHERE eid = emp_id)
           AND S.approver_id IS NULL
-          AND S.date > start_date -- given start date onwards, inclusive?
+          AND S.date >= start_date --include start date
     ORDER BY S.date, S.time;
 END;
 $$ LANGUAGE plpgsql;

@@ -82,7 +82,7 @@ CREATE TABLE HealthDeclaration (
 
 CREATE TABLE Updates (
     date DATE,
-    new_capacity INTEGER,
+    new_capacity INTEGER NOT NULL,
     floor INTEGER,
     room INTEGER,
     eid INTEGER,

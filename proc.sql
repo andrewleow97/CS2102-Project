@@ -167,56 +167,60 @@ CREATE OR REPLACE FUNCTION junior_not_booker()
 RETURNS TRIGGER AS $$
 BEGIN
         IF NEW.eid NOT IN (SELECT eid FROM Booker) THEN RETURN NEW;
-        ELSE RAISE EXCEPTION 'Employee % is already a Booker, and cannot be a Junior', NEW.eid;
+        ELSE RAISE NOTICE 'Employee % is already a Booker, and cannot be a Junior', NEW.eid;
+        RETURN NULL;
         END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS junior_not_in_booker ON Junior;
 CREATE TRIGGER junior_not_in_booker BEFORE INSERT ON Junior 
-FOR EACH STATEMENT EXECUTE FUNCTION junior_not_booker();
+FOR EACH ROW EXECUTE FUNCTION junior_not_booker();
 
 ----- Check new Booker employee is not a Junior
 CREATE OR REPLACE FUNCTION booker_not_junior() 
 RETURNS TRIGGER AS $$
 BEGIN
         IF NEW.eid NOT IN (SELECT eid FROM Junior) THEN RETURN NEW;
-        ELSE RAISE EXCEPTION 'Employee % is already a Junior, and cannot be a Booker', NEW.eid;
+        ELSE RAISE NOTICE 'Employee % is already a Junior, and cannot be a Booker', NEW.eid;
+        RETURN NULL;
         END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS booker_not_in_junior ON Booker;
 CREATE TRIGGER booker_not_in_junior BEFORE INSERT ON Booker 
-FOR EACH STATEMENT EXECUTE FUNCTION booker_not_junior();
+FOR EACH ROW EXECUTE FUNCTION booker_not_junior();
 
 ---- Check new Senior employee is not a Manager
 CREATE OR REPLACE FUNCTION senior_not_manager() 
 RETURNS TRIGGER AS $$
 BEGIN
         IF NEW.eid NOT IN (SELECT eid FROM Manager) THEN RETURN NEW;
-        ELSE RAISE EXCEPTION 'Employee % is already a Manager, and cannot be a Senior', NEW.eid;
+        ELSE RAISE NOTICE 'Employee % is already a Manager, and cannot be a Senior', NEW.eid;
+        RETURN NULL;
         END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS senior_not_in_manager ON Senior;
 CREATE TRIGGER senior_not_in_manager BEFORE INSERT ON Senior 
-FOR EACH STATEMENT EXECUTE FUNCTION senior_not_manager();
+FOR EACH ROW EXECUTE FUNCTION senior_not_manager();
 
 ---- Check new Manager employee is not a Senior
 CREATE OR REPLACE FUNCTION manager_not_senior() 
 RETURNS TRIGGER AS $$
 BEGIN
         IF NEW.eid NOT IN (SELECT eid FROM Senior) THEN RETURN NEW;
-        ELSE RAISE EXCEPTION 'Employee % is already a Senior, and cannot be a Manager', NEW.eid;
+        ELSE RAISE NOTICE 'Employee % is already a Senior, and cannot be a Manager', NEW.eid;
+        RETURN NULL;
         END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS manager_not_in_senior ON Manager;
 CREATE TRIGGER manager_not_in_senior BEFORE INSERT ON Manager 
-FOR EACH STATEMENT EXECUTE FUNCTION manager_not_senior();
+FOR EACH ROW EXECUTE FUNCTION manager_not_senior();
 
 -- Remove Employee (only set resigned date, don't remove record)
 CREATE OR REPLACE PROCEDURE remove_employee (emp_id INTEGER, date DATE)
@@ -242,14 +246,15 @@ CREATE OR REPLACE FUNCTION resigned_past_date()
 RETURNS TRIGGER AS $$
 BEGIN
         IF NEW.resigned_date <= CURRENT_DATE THEN RETURN NEW;
-        ELSE RAISE EXCEPTION 'Resignation date % must be in the past or present', NEW.resigned_date;
+        ELSE RAISE NOTICE 'Resignation date % must be in the past or present', NEW.resigned_date;
+        RETURN NULL;
         END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS resigned_in_past ON Employees;
 CREATE TRIGGER resigned_in_past BEFORE UPDATE ON Employees 
-FOR EACH STATEMENT EXECUTE FUNCTION resigned_past_date();
+FOR EACH ROW EXECUTE FUNCTION resigned_past_date();
 
 ---- When employee resigns, remove all future records, regardless of approval status -------
 CREATE OR REPLACE FUNCTION resign_remove() 
@@ -263,7 +268,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS remove_future_records ON Employees;
 CREATE TRIGGER remove_future_records AFTER UPDATE ON Employees 
-FOR EACH STATEMENT EXECUTE FUNCTION resign_remove();
+FOR EACH ROW EXECUTE FUNCTION resign_remove();
 
 -- Core Functions
 

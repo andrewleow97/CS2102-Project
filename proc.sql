@@ -407,6 +407,10 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION check_for_fever()
 RETURNS TRIGGER AS $$
 BEGIN
+    IF NEW.date <> CURRENT_DATE THEN
+        RAISE EXCEPTION 'Health declaration date % is not the current date %.', NEW.date, CURRENT_DATE; 
+    END IF;
+
     IF NEW.temperature > 37.5 THEN 
         NEW.fever = 'true';
     END IF;

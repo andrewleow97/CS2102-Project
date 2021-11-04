@@ -158,12 +158,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_employee_format_in_order ON Employees;
-CREATE TRIGGER check_employee_format_in_order BEFORE INSERT ON Employees 
+CREATE TRIGGER check_employee_format_in_order BEFORE INSERT OR UPDATE ON Employees 
 FOR EACH ROW EXECUTE FUNCTION check_employee_format();
 
 CREATE OR REPLACE FUNCTION check_email_format() 
 RETURNS TRIGGER AS $$
-DECLARE new_eid INTEGER;
 DECLARE new_email TEXT;
 BEGIN
     ---- Check email format
@@ -176,8 +175,25 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_email_format_in_order ON Employees;
-CREATE TRIGGER check_email_format_in_order BEFORE INSERT ON Employees 
+CREATE TRIGGER check_email_format_in_order BEFORE INSERT OR UPDATE ON Employees 
 FOR EACH ROW EXECUTE FUNCTION check_email_format();
+
+CREATE OR REPLACE FUNCTION check_name_format() 
+RETURNS TRIGGER AS $$
+DECLARE name_length INTEGER;
+BEGIN
+    ---- Check name format
+    SELECT LENGTH(NEW.ename) INTO name_length;
+    IF name_length < 1 THEN RAISE NOTICE 'Employee name % is too short', NEW.ename;
+    RETURN NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_name_format_in_order ON Employees;
+CREATE TRIGGER check_name_format_in_order BEFORE INSERT OR UPDATE ON Employees 
+FOR EACH ROW EXECUTE FUNCTION check_name_format();
 
 CREATE OR REPLACE FUNCTION default_junior() 
 RETURNS TRIGGER AS $$

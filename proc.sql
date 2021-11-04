@@ -146,19 +146,32 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    ---- Check email format
-    new_email := CONCAT(NEW.ename, NEW.eid::TEXT, '@gmail.com');
-    IF NEW.email = new_email THEN RETURN NEW;
-    ELSE RAISE NOTICE 'New employee email % does not match email format %', NEW.email, new_email;
-    RETURN NULL;
-
-    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_employee_format_in_order ON Employees;
 CREATE TRIGGER check_employee_format_in_order BEFORE INSERT ON Employees 
 FOR EACH ROW EXECUTE FUNCTION check_employee_format();
+
+CREATE OR REPLACE FUNCTION check_email_format() 
+RETURNS TRIGGER AS $$
+DECLARE new_eid INTEGER;
+DECLARE new_email TEXT;
+BEGIN
+    ---- Check email format
+    new_email := CONCAT(NEW.ename, NEW.eid::TEXT, '@gmail.com');
+    IF NEW.email = new_email THEN RETURN NEW;
+    ELSE RAISE NOTICE 'New employee email % does not match email format %', NEW.email, new_email;
+    RETURN NULL;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_email_format_in_order ON Employees;
+CREATE TRIGGER check_email_format_in_order BEFORE INSERT ON Employees 
+FOR EACH ROW EXECUTE FUNCTION check_email_format();
+
+
 
 ---- Check new Junior employee is not a Booker
 CREATE OR REPLACE FUNCTION junior_not_booker() 

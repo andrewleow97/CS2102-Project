@@ -457,8 +457,8 @@ BEGIN
             AND J.room = S.room AND J.floor = S.floor
             AND J2.date = S.date AND J2.time = S.time
             AND J2.room = S.room AND J2.floor = S.floor
-            AND J.eid <> J2.eid AND S.approver_id IS NOT NULL 
-            AND emp_id = J.eid AND S.date BETWEEN curr_date - 3 AND curr_date;
+            AND J.eid <> J2.eid AND emp_id = J.eid 
+            AND S.date BETWEEN curr_date - 3 AND curr_date;
         
     ALTER TABLE Joins DISABLE TRIGGER employee_leaving;
     

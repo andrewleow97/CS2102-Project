@@ -36,7 +36,7 @@ $$ LANGUAGE plpgsql;
 
 DROP PROCEDURE change_capacity(integer,integer,integer,date,integer);
 -- Change Meeting Room Capacity
-CREATE OR REPLACE PROCEDURE change_capacity (floor_num INTEGER, room_num INTEGER, room_capacity INTEGER, date DATE, manager_id INTEGER)
+CREATE OR REPLACE PROCEDURE change_capacity (floor_num INTEGER, room_num INTEGER, room_capacity INTEGER, new_date DATE, manager_id INTEGER)
 AS $$
 DECLARE man_did INTEGER;
 DECLARE room_did INTEGER;
@@ -48,7 +48,10 @@ BEGIN
       RAISE EXCEPTION 'Manager department % does not match room department %', man_did, room_did;
     END IF;
 
-    INSERT INTO Updates VALUES (date, room_capacity, floor_num, room_num, manager_id);
+    IF new_date IN (SELECT DISTINCT date FROM Updates U WHERE floor_num = U.floor AND room_num = U.room) THEN
+    UPDATE Updates SET room_capacity = new_capacity WHERE floor = floor_num AND room = room_num AND date = new_date;
+    ELSE INSERT INTO Updates VALUES (new_date, room_capacity, floor_num, room_num, manager_id);
+    END IF;
       
 END
 $$ LANGUAGE plpgsql;

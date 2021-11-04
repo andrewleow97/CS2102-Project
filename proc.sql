@@ -270,9 +270,9 @@ CREATE OR REPLACE FUNCTION resign_remove()
 RETURNS TRIGGER AS $$
 BEGIN
     ALTER TABLE Joins DISABLE TRIGGER employee_leaving;
-    DELETE FROM Joins J WHERE J.eid = NEW.eid AND J.date > OLD.resigned_date::DATE AND J.date >= CURRENT_DATE;
+    DELETE FROM Joins J WHERE J.eid = NEW.eid AND J.date > NEW.resigned_date::DATE AND J.date >= CURRENT_DATE;
     ALTER TABLE Joins ENABLE TRIGGER employee_leaving;
-    DELETE FROM Sessions S WHERE S.booker_id = NEW.eid AND S.date > OLD.resigned_date::DATE AND S.date >= CURRENT_DATE;
+    DELETE FROM Sessions S WHERE S.booker_id = NEW.eid AND S.date > NEW.resigned_date::DATE AND S.date >= CURRENT_DATE;
     
     RETURN NEW;
 END;
@@ -426,6 +426,7 @@ BEGIN
 
     IF NEW.temperature > 37.5 THEN 
         NEW.fever = 'true';
+    ELSE NEW.fever = 'false';
     END IF;
     RETURN NEW;
 END;
@@ -539,8 +540,8 @@ BEGIN
     FROM Employees E
     WHERE E.eid = NEW.eid;
 
-    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < CURRENT_DATE THEN
-        RAISE NOTICE 'employee % already resigned, cannot approve meeting', NEW.eid;
+    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < meeting_date THEN
+        RAISE NOTICE 'employee % already resigned, cannot join meeting', NEW.eid;
         RETURN NULL;
     END IF; 
 
@@ -693,7 +694,7 @@ BEGIN
     FROM Employees E
     WHERE E.eid = NEW.approver_id;
 
-    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < CURRENT_DATE THEN
+    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < meeting_date THEN
         RAISE NOTICE 'employee % already resigned, cannot approve meeting', NEW.approver_id;
         RETURN NULL;
     END IF; 

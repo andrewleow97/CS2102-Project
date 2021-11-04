@@ -116,12 +116,20 @@ BEGIN
     
     INSERT INTO Employees VALUES (new_eid, did, ename, email, home_phone, mobile_phone, office_phone, resigned_date);
 
-    IF designation = 'Junior' THEN 
-        INSERT INTO Junior VALUES(new_eid);
-    ELSIF designation = 'Senior' THEN 
+    IF LOWER(designation) = 'junior' THEN 
+        IF new_eid NOT IN (SELECT eid FROM Junior) THEN
+            INSERT INTO Junior VALUES(new_eid);
+        END IF;
+    ELSIF LOWER(designation) = 'senior' THEN 
+        IF new_eid IN (SELECT eid FROM Junior) THEN
+            DELETE FROM Junior WHERE eid = new_eid;
+        END IF;
         INSERT INTO Booker VALUES (new_eid);
         INSERT INTO Senior VALUES(new_eid); 
-    ELSIF designation = 'Manager' THEN 
+    ELSIF LOWER(designation) = 'manager' THEN 
+        IF new_eid IN (SELECT eid FROM Junior) THEN
+            DELETE FROM Junior WHERE eid = new_eid;
+        END IF;
         INSERT INTO Booker VALUES (new_eid);
         INSERT INTO Manager VALUES (new_eid); 
     END IF;
@@ -171,7 +179,17 @@ DROP TRIGGER IF EXISTS check_email_format_in_order ON Employees;
 CREATE TRIGGER check_email_format_in_order BEFORE INSERT ON Employees 
 FOR EACH ROW EXECUTE FUNCTION check_email_format();
 
+CREATE OR REPLACE FUNCTION default_junior() 
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO Junior VALUES (NEW.eid);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS default_role_junior ON Employees;
+CREATE TRIGGER default_role_junior AFTER INSERT ON Employees 
+FOR EACH ROW EXECUTE FUNCTION default_junior();
 
 ---- Check new Junior employee is not a Booker
 CREATE OR REPLACE FUNCTION junior_not_booker() 

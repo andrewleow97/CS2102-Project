@@ -11,10 +11,10 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Remove Department (assume employees no longer belong to this department)
-CREATE OR REPLACE PROCEDURE remove_department (did INTEGER)
+CREATE OR REPLACE PROCEDURE remove_department (department_id INTEGER)
 AS $$
 BEGIN
-    DELETE FROM Departments D WHERE D.did = did;
+    DELETE FROM Departments D WHERE D.did = department_id;
 END
 $$ LANGUAGE plpgsql;
 
@@ -34,20 +34,21 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+DROP PROCEDURE change_capacity(integer,integer,integer,date,integer);
 -- Change Meeting Room Capacity
-CREATE OR REPLACE PROCEDURE change_capacity (floor INTEGER, room INTEGER, room_capacity INTEGER, date DATE, manager_id INTEGER)
+CREATE OR REPLACE PROCEDURE change_capacity (floor_num INTEGER, room_num INTEGER, room_capacity INTEGER, date DATE, manager_id INTEGER)
 AS $$
 DECLARE man_did INTEGER;
 DECLARE room_did INTEGER;
 BEGIN
     SELECT E.did INTO man_did FROM Employees E WHERE E.eid = manager_id;
-    SELECT M.did INTO room_did FROM MeetingRooms M WHERE M.floor = floor AND M.room = room;
+    SELECT M.did INTO room_did FROM MeetingRooms M WHERE M.floor = floor_num AND M.room = room_num;
 
     IF man_did <> room_did THEN
       RAISE EXCEPTION 'Manager department % does not match room department %', man_did, room_did;
     END IF;
 
-    INSERT INTO Updates VALUES (date, room_capacity, floor, room, manager_id);
+    INSERT INTO Updates VALUES (date, room_capacity, floor_num, room_num, manager_id);
       
 END
 $$ LANGUAGE plpgsql;
@@ -93,8 +94,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS remove_meetings_exceeding ON Updates;
 CREATE TRIGGER remove_meetings_exceeding AFTER INSERT ON Updates
-FOR EACH ROW EXECUTE FUNCTION remove_meetings(); 
-
+FOR EACH STATEMENT EXECUTE FUNCTION remove_meetings(); 
 
 -- Add Employee
 CREATE OR REPLACE PROCEDURE add_employee (did INTEGER, ename TEXT, home_phone INTEGER, mobile_phone INTEGER, office_phone INTEGER, designation TEXT)

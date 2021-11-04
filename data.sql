@@ -72,7 +72,7 @@ INSERT INTO Manager (eid) VALUES
 INSERT INTO MeetingRooms (floor, room, rname, did) VALUES 
   (1, 1, 'Room 1-1', 2),
   (1, 2, 'Room 1-2', 3),
-  (1, 6, 'Room 1-1', 4),
+  (1, 6, 'Room 1-6', 4),
   (2, 1, 'Room 2-1', 3),
   (2, 2, 'Room 2-2', 7),
   (2, 7, 'Room 2-7', 9),

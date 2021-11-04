@@ -110,7 +110,7 @@ BEGIN
     email := CONCAT(ename, new_eid::TEXT, '@gmail.com');
 
     -- Can't do in trigger, designation is not a column
-    IF designation NOT IN ('Junior', 'Senior', 'Manager') THEN
+    IF LOWER(designation) NOT IN ('junior', 'senior', 'manager') THEN
         RAISE EXCEPTION 'Wrong role given -> %.', designation;
     END IF; 
     

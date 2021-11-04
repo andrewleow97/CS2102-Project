@@ -797,9 +797,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
 -- View Booking Report
-CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, eid INTEGER)
+CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, emp_id INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, approved BOOLEAN) AS $$
 BEGIN
     IF NOT EXISTS (SELECT * FROM Booker B WHERE B.eid = emp_id) THEN
@@ -808,7 +807,7 @@ BEGIN
 
     RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.approver_id IS NOT NULL -- (true if approver id is not null, false if it is null)
     FROM Sessions S
-    WHERE S.date >= start_date AND eid = S.booker_id
+    WHERE S.date >= start_date AND emp_id = S.booker_id
     ORDER BY S.date ASC, S.time ASC;
 END;
 $$ LANGUAGE plpgsql;
@@ -836,25 +835,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
 -- View Manager Report
 -- 1. If the employee ID does not belong to a manager, the routine returns an empty table.
 -- 2. Returns a table containing all meeting that are booked but not yet approved from the given start date onwards.
 -- 3. Return all meeting in the room with the same department as the manager
 -- 4. The table should be sorted in ascending order of date and start hour.
-CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, emp_id INTEGER)
+CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, manager_id INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, employee_id INTEGER) AS $$
 BEGIN
-    IF NOT EXISTS (SELECT * FROM Manager WHERE eid = emp_id) THEN
+    IF NOT EXISTS (SELECT * FROM Manager WHERE eid = manager_id) THEN
         RETURN;
     END IF;
 
-    RETURN QUERY SELECT S.floor, S.room, S.date, S.time, S.booker_id
-    FROM Sessions S JOIN Employees E
-    ON S.booker_id = E.eid
-    WHERE E.did = (SELECT did FROM Employees WHERE eid = emp_id)
-          AND S.approver_id IS NULL
-          AND S.date >= start_date --include start date
+    RETURN QUERY SELECT DISTINCT S.floor, S.room, S.date, S.time, S.booker_id
+    FROM Sessions S, Employees E, MeetingRooms M
+    WHERE S.floor = M.floor AND S.room = M.room
+    AND M.did = E.did AND E.did IN (SELECT did FROM Employees WHERE eid = manager_id)
+    AND S.approver_id IS NULL AND S.date >= start_date --include start date
     ORDER BY S.date, S.time;
 END;
 $$ LANGUAGE plpgsql;

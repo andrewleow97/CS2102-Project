@@ -426,6 +426,7 @@ BEGIN
 
     IF NEW.temperature > 37.5 THEN 
         NEW.fever = 'true';
+    ELSE NEW.fever = 'false';
     END IF;
     RETURN NEW;
 END;

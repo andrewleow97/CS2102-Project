@@ -15,7 +15,7 @@ CREATE TABLE Employees (
     mobile_phone INTEGER UNIQUE,
     office_phone INTEGER UNIQUE,
     resigned_date DATE,
-    FOREIGN KEY (did) REFERENCES Departments (did)
+    FOREIGN KEY (did) REFERENCES Departments (did) ON UPDATE CASCADE
 );
 
 CREATE TABLE Junior (
@@ -44,7 +44,7 @@ CREATE TABLE MeetingRooms (
     rname TEXT NOT NULL,
     did INTEGER NOT NULL,
     PRIMARY KEY (floor, room),
-    FOREIGN KEY (did) REFERENCES Departments (did)
+    FOREIGN KEY (did) REFERENCES Departments (did) ON UPDATE CASCADE
 );
 
 CREATE TABLE Sessions (

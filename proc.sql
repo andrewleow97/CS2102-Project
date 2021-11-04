@@ -270,9 +270,9 @@ CREATE OR REPLACE FUNCTION resign_remove()
 RETURNS TRIGGER AS $$
 BEGIN
     ALTER TABLE Joins DISABLE TRIGGER employee_leaving;
-    DELETE FROM Joins J WHERE J.eid = NEW.eid AND J.date > NEW.resignation_date::DATE AND J.date >= CURRENT_DATE;
+    DELETE FROM Joins J WHERE J.eid = NEW.eid AND J.date > OLD.resigned_date::DATE AND J.date >= CURRENT_DATE;
     ALTER TABLE Joins ENABLE TRIGGER employee_leaving;
-    DELETE FROM Sessions S WHERE S.booker_id = NEW.eid AND S.date > NEW.resignation_date::DATE AND S.date >= CURRENT_DATE;
+    DELETE FROM Sessions S WHERE S.booker_id = NEW.eid AND S.date > OLD.resigned_date::DATE AND S.date >= CURRENT_DATE;
     
     RETURN NEW;
 END;

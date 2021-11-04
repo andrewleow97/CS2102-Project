@@ -261,7 +261,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS resigned_in_past ON Employees;
-CREATE TRIGGER resigned_in_past BEFORE UPDATE ON Employees 
+CREATE TRIGGER resigned_in_past BEFORE INSERT OR UPDATE ON Employees 
 FOR EACH ROW EXECUTE FUNCTION resigned_past_date();
 
 

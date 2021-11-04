@@ -540,8 +540,8 @@ BEGIN
     FROM Employees E
     WHERE E.eid = NEW.eid;
 
-    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < CURRENT_DATE THEN
-        RAISE NOTICE 'employee % already resigned, cannot approve meeting', NEW.eid;
+    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < meeting_date THEN
+        RAISE NOTICE 'employee % already resigned, cannot join meeting', NEW.eid;
         RETURN NULL;
     END IF; 
 
@@ -694,7 +694,7 @@ BEGIN
     FROM Employees E
     WHERE E.eid = NEW.approver_id;
 
-    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < CURRENT_DATE THEN
+    IF employee_resigned_date IS NOT NULL AND employee_resigned_date < meeting_date THEN
         RAISE NOTICE 'employee % already resigned, cannot approve meeting', NEW.approver_id;
         RETURN NULL;
     END IF; 

@@ -253,7 +253,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION resigned_past_date() 
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.resigned_date <= CURRENT_DATE THEN RETURN NEW;
+    IF NEW.resigned_date <= CURRENT_DATE OR NEW.resigned_date IS NULL THEN RETURN NEW;
     ELSE RAISE NOTICE 'Resignation date % must be in the past or present', NEW.resigned_date;
     RETURN NULL;
     END IF;
@@ -264,6 +264,20 @@ DROP TRIGGER IF EXISTS resigned_in_past ON Employees;
 CREATE TRIGGER resigned_in_past BEFORE INSERT OR UPDATE ON Employees 
 FOR EACH ROW EXECUTE FUNCTION resigned_past_date();
 
+---- Check UPDATE ON EMPLOYEES -------
+CREATE OR REPLACE FUNCTION prevent_eid_email_name_update() 
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.eid <> NEW.eid OR OLD.ename <> NEW.ename OR OLD.email <> NEW.email THEN RAISE NOTICE 'Cannot update employee eid, name or email';
+    RETURN OLD;
+    ELSE RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_employees_update ON Employees;
+CREATE TRIGGER check_employees_update BEFORE UPDATE ON Employees 
+FOR EACH ROW EXECUTE FUNCTION prevent_eid_email_name_update();
 
 ----approval status --------
 CREATE OR REPLACE FUNCTION resign_remove()

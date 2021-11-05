@@ -124,15 +124,9 @@ BEGIN
             INSERT INTO Junior VALUES(new_eid);
         END IF;
     ELSIF LOWER(designation) = 'senior' THEN 
-        IF new_eid IN (SELECT eid FROM Junior) THEN
-            DELETE FROM Junior WHERE eid = new_eid;
-        END IF;
         INSERT INTO Booker VALUES (new_eid);
         INSERT INTO Senior VALUES(new_eid); 
     ELSIF LOWER(designation) = 'manager' THEN 
-        IF new_eid IN (SELECT eid FROM Junior) THEN
-            DELETE FROM Junior WHERE eid = new_eid;
-        END IF;
         INSERT INTO Booker VALUES (new_eid);
         INSERT INTO Manager VALUES (new_eid); 
     END IF;
@@ -229,10 +223,10 @@ FOR EACH ROW EXECUTE FUNCTION junior_not_booker();
 CREATE OR REPLACE FUNCTION booker_not_junior() 
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.eid NOT IN (SELECT eid FROM Junior) THEN RETURN NEW;
-    ELSE RAISE NOTICE 'Employee % is already a Junior, and cannot be a Booker', NEW.eid;
-    RETURN NULL;
+    IF NEW.eid IN (SELECT eid FROM Junior) THEN
+        DELETE FROM Junior WHERE eid = NEW.eid;
     END IF;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 

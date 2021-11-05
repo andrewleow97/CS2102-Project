@@ -52,10 +52,6 @@ INSERT INTO Employees (eid, did, ename, email, mobile_phone, home_phone, office_
   (30, 6, 'Wscon', 'Wscon30@gmail.com', '94629056', '63617133', '67025443', null)
 ;
 
-INSERT INTO Junior (eid) VALUES 
-  (1), (2), (3), (4), (5), (6), (7), (8), (9), (10)
-;
-
 INSERT INTO Booker (eid) VALUES 
   (11), (12), (13), (14), (15), (16), (17), (18), (19), (20),
   (21), (22), (23), (24), (25), (26), (27), (28), (29), (30)

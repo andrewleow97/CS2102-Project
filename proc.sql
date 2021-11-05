@@ -49,7 +49,7 @@ BEGIN
     END IF;
 
     IF new_date IN (SELECT DISTINCT date FROM Updates U WHERE floor_num = U.floor AND room_num = U.room) THEN
-    UPDATE Updates SET room_capacity = new_capacity WHERE floor = floor_num AND room = room_num AND date = new_date;
+    UPDATE Updates SET new_capacity = room_capacity, eid = manager_id WHERE floor = floor_num AND room = room_num AND date = new_date;
     ELSE INSERT INTO Updates VALUES (new_date, room_capacity, floor_num, room_num, manager_id);
     END IF;
       
@@ -97,7 +97,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS remove_meetings_exceeding ON Updates;
 CREATE TRIGGER remove_meetings_exceeding AFTER INSERT ON Updates
-FOR EACH STATEMENT EXECUTE FUNCTION remove_meetings(); 
+FOR EACH ROW EXECUTE FUNCTION remove_meetings(); 
 
 -- Add Employee
 CREATE OR REPLACE PROCEDURE add_employee (did INTEGER, ename TEXT, home_phone INTEGER, mobile_phone INTEGER, office_phone INTEGER, designation TEXT)

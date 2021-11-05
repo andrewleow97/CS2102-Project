@@ -1,5 +1,44 @@
 -- PROC SQL PL/pgSQL routines of implementation need to run with psql
 
+DROP FUNCTION IF EXISTS check_update_date() CASCADE;
+DROP FUNCTION IF EXISTS senior_not_manager() CASCADE;
+DROP FUNCTION IF EXISTS prevent_eid_email_name_update() CASCADE;
+DROP FUNCTION IF EXISTS resign_remove() CASCADE;
+DROP FUNCTION IF EXISTS find_room_capacity(date) CASCADE;
+DROP FUNCTION IF EXISTS check_email_format() CASCADE;
+DROP FUNCTION IF EXISTS check_name_format() CASCADE;
+DROP FUNCTION IF EXISTS default_junior() CASCADE;
+DROP FUNCTION IF EXISTS manager_not_senior() CASCADE;
+DROP PROCEDURE IF EXISTS remove_employee(integer,date) CASCADE;
+DROP FUNCTION IF EXISTS resigned_past_date() CASCADE;
+DROP FUNCTION IF EXISTS junior_not_booker() CASCADE;
+DROP FUNCTION IF EXISTS booker_not_junior() CASCADE;
+DROP PROCEDURE IF EXISTS declare_health(integer,date,numeric) CASCADE;
+DROP FUNCTION IF EXISTS check_for_fever() CASCADE;
+DROP FUNCTION IF EXISTS view_manager_report(date,integer) CASCADE;
+DROP PROCEDURE IF EXISTS book_room(integer,integer,date,integer,integer,integer) CASCADE;
+DROP FUNCTION IF EXISTS booker_joins_meeting() CASCADE;
+DROP PROCEDURE IF EXISTS unbook_room(integer,integer,date,integer,integer,integer) CASCADE;
+DROP FUNCTION IF EXISTS check_delete_meeting() CASCADE;
+DROP PROCEDURE IF EXISTS add_department(integer,text CASCADE);
+DROP FUNCTION IF EXISTS leave_meeting(integer,date,integer,integer,integer,integer) CASCADE;
+DROP FUNCTION IF EXISTS view_booking_report(date,integer) CASCADE;
+DROP FUNCTION IF EXISTS search_room(integer,date,integer,integer) CASCADE;
+DROP FUNCTION IF EXISTS check_insert_booking() CASCADE;
+DROP FUNCTION IF EXISTS check_join_meeting() CASCADE;
+DROP PROCEDURE IF EXISTS add_room(integer,integer,text,integer,integer,integer) CASCADE;
+DROP FUNCTION IF EXISTS check_employee_format() CASCADE;
+DROP PROCEDURE IF EXISTS remove_department(integer) CASCADE;
+DROP FUNCTION IF EXISTS remove_meetings() CASCADE;
+DROP FUNCTION IF EXISTS contact_tracing(integer,date) CASCADE;
+DROP FUNCTION IF EXISTS join_meeting(integer,date,integer,integer,integer,integer) CASCADE;
+DROP FUNCTION IF EXISTS check_leave_meeting() CASCADE;
+DROP FUNCTION IF EXISTS view_future_meeting(date,integer) CASCADE;
+DROP FUNCTION IF EXISTS non_compliance(date,date) CASCADE;
+DROP PROCEDURE IF EXISTS change_capacity(integer,integer,integer,date,integer) CASCADE;
+DROP PROCEDURE IF EXISTS add_employee(integer,text,integer,integer,integer,text) CASCADE;
+DROP FUNCTION IF EXISTS check_approve_meeting() CASCADE;
+DROP FUNCTION IF EXISTS approve_meeting(integer,date,integer,integer,integer,integer,character) CASCADE;
 -- Basic Functions
 
 -- Add Department

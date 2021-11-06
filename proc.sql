@@ -194,7 +194,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_employee_format_in_order ON Employees;
-CREATE TRIGGER check_employee_format_in_order BEFORE INSERT OR UPDATE ON Employees 
+CREATE TRIGGER check_employee_format_in_order BEFORE INSERT ON Employees 
 FOR EACH ROW EXECUTE FUNCTION check_employee_format();
 
 CREATE OR REPLACE FUNCTION check_email_format() 
@@ -211,7 +211,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_email_format_in_order ON Employees;
-CREATE TRIGGER check_email_format_in_order BEFORE INSERT OR UPDATE ON Employees 
+CREATE TRIGGER check_email_format_in_order BEFORE INSERT ON Employees 
 FOR EACH ROW EXECUTE FUNCTION check_email_format();
 
 CREATE OR REPLACE FUNCTION check_name_format() 
@@ -228,7 +228,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_name_format_in_order ON Employees;
-CREATE TRIGGER check_name_format_in_order BEFORE INSERT OR UPDATE ON Employees 
+CREATE TRIGGER check_name_format_in_order BEFORE INSERT ON Employees 
 FOR EACH ROW EXECUTE FUNCTION check_name_format();
 
 CREATE OR REPLACE FUNCTION default_junior() 

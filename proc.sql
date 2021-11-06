@@ -142,7 +142,8 @@ BEGIN
     WHERE S.floor IN (SELECT E.floor FROM ExceedCap E)
         AND S.room IN (SELECT E.room FROM ExceedCap E) 
         AND S.date IN (SELECT E.date FROM ExceedCap E)
-        AND S.time IN (SELECT E.time FROM ExceedCap E);
+        AND S.time IN (SELECT E.time FROM ExceedCap E)
+        AND S.floor = NEW.floor AND S.room = NEW.room;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

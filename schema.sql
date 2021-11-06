@@ -86,7 +86,7 @@ CREATE TABLE Updates (
     floor INTEGER,
     room INTEGER,
     eid INTEGER,
-    PRIMARY KEY (date, floor, room, eid),
+    PRIMARY KEY (date, floor, room),
     FOREIGN KEY (floor, room) REFERENCES MeetingRooms(floor, room),
     FOREIGN KEY (eid) REFERENCES Manager (eid)
 );

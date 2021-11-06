@@ -135,7 +135,7 @@ $$ LANGUAGE plpgsql;
 
 
 DROP TRIGGER IF EXISTS remove_meetings_exceeding ON Updates;
-CREATE TRIGGER remove_meetings_exceeding AFTER INSERT ON Updates
+CREATE TRIGGER remove_meetings_exceeding AFTER INSERT OR UPDATE ON Updates
 FOR EACH ROW EXECUTE FUNCTION remove_meetings(); 
 
 -- Add Employee

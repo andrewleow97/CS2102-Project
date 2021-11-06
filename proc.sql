@@ -72,7 +72,7 @@ BEGIN
     END IF;
     
     INSERT INTO MeetingRooms VALUES (floor_num, room_num, rname, did); -- floor and room primary key
-    UPDATE Updates U SET new_capacity = room_capacity AND eid = manager_id WHERE U.date=CURRENT_DATE AND U.floor = floor_num AND U.room = room_num;
+    UPDATE Updates U SET new_capacity = room_capacity, eid = manager_id WHERE U.date=CURRENT_DATE AND U.floor = floor_num AND U.room = room_num;
 END
 $$ LANGUAGE plpgsql;
 

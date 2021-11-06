@@ -38,7 +38,10 @@ DROP FUNCTION IF EXISTS non_compliance(date,date) CASCADE;
 DROP PROCEDURE IF EXISTS change_capacity(integer,integer,integer,date,integer) CASCADE;
 DROP PROCEDURE IF EXISTS add_employee(integer,text,integer,integer,integer,text) CASCADE;
 DROP FUNCTION IF EXISTS check_approve_meeting() CASCADE;
-DROP FUNCTION IF EXISTS approve_meeting(integer,date,integer,integer,integer,integer,character) CASCADE;
+DROP FUNCTION IF EXISTS approve_meeting(integer,date,integer,integer,integer,integer,character) 
+CASCADE;
+DROP FUNCTION IF EXISTS auto_update_capacity() CASCADE;
+DROP FUNCTION IF EXISTS auto_add_updates() CASCADE;
 -- Basic Functions
 
 -- Add Department
@@ -69,10 +72,21 @@ BEGIN
     END IF;
     
     INSERT INTO MeetingRooms VALUES (floor, room, rname, did); -- floor and room primary key
-    INSERT INTO Updates VALUES (CURRENT_DATE, room_capacity, floor, room, manager_id);
+    UPDATE Updates U SET new_capacity = room_capacity AND eid = manager_id WHERE U.date=CURRENT_DATE AND U.floor = floor AND U.room = room;
 END
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION auto_update_capacity()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO Updates(date, floor, room, eid) VALUES (CURRENT_DATE, NEW.floor, NEW.room, NULL);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS auto_add_updates ON MeetingRooms;
+CREATE TRIGGER auto_add_updates AFTER INSERT ON MeetingRooms
+FOR EACH ROW EXECUTE FUNCTION auto_update_capacity;
 
 -- Change Meeting Room Capacity
 CREATE OR REPLACE PROCEDURE change_capacity (floor_num INTEGER, room_num INTEGER, room_capacity INTEGER, new_date DATE, manager_id INTEGER)

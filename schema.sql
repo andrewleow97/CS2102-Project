@@ -82,11 +82,11 @@ CREATE TABLE HealthDeclaration (
 
 CREATE TABLE Updates (
     date DATE,
-    new_capacity INTEGER NOT NULL,
+    new_capacity INTEGER NOT NULL DEFAULT 20,
     floor INTEGER,
     room INTEGER,
     eid INTEGER,
-    PRIMARY KEY (date, floor, room, eid),
+    PRIMARY KEY (date, floor, room),
     FOREIGN KEY (floor, room) REFERENCES MeetingRooms(floor, room),
     FOREIGN KEY (eid) REFERENCES Manager (eid)
 );

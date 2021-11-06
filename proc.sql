@@ -903,9 +903,8 @@ BEGIN
        AND S.time = J.time
        AND S.room = J.room 
        AND S.floor = J.floor 
-       AND J.eid = emp_id
     -- Check approved meeting from given start date onwards
-    WHERE S.approver_id IS NOT NULL AND S.date >= start_date 
+    WHERE S.approver_id IS NOT NULL AND S.date >= start_date AND J.eid = emp_id
     ORDER BY S.date ASC, S.time ASC;
 END;
 $$ LANGUAGE plpgsql;

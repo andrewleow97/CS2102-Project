@@ -73,7 +73,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-DROP PROCEDURE change_capacity(integer,integer,integer,date,integer);
+
 -- Change Meeting Room Capacity
 CREATE OR REPLACE PROCEDURE change_capacity (floor_num INTEGER, room_num INTEGER, room_capacity INTEGER, new_date DATE, manager_id INTEGER)
 AS $$

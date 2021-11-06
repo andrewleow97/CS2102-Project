@@ -61,7 +61,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Add Meeting Room
-CREATE OR REPLACE PROCEDURE add_room (floor INTEGER, room INTEGER, rname TEXT, did INTEGER, room_capacity INTEGER, manager_id INTEGER)
+CREATE OR REPLACE PROCEDURE add_room (floor_num INTEGER, room_num INTEGER, rname TEXT, did INTEGER, room_capacity INTEGER, manager_id INTEGER)
 AS $$
 DECLARE man_did INTEGER;
 BEGIN
@@ -71,8 +71,8 @@ BEGIN
         RAISE EXCEPTION 'Manager department % does not match room department %', man_did, did;
     END IF;
     
-    INSERT INTO MeetingRooms VALUES (floor, room, rname, did); -- floor and room primary key
-    UPDATE Updates U SET new_capacity = room_capacity AND eid = manager_id WHERE U.date=CURRENT_DATE AND U.floor = floor AND U.room = room;
+    INSERT INTO MeetingRooms VALUES (floor_num, room_num, rname, did); -- floor and room primary key
+    UPDATE Updates U SET new_capacity = room_capacity AND eid = manager_id WHERE U.date=CURRENT_DATE AND U.floor = floor_num AND U.room = room_num;
 END
 $$ LANGUAGE plpgsql;
 

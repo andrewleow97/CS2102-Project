@@ -20,7 +20,7 @@ DROP PROCEDURE IF EXISTS book_room(integer,integer,date,integer,integer,integer)
 DROP FUNCTION IF EXISTS booker_joins_meeting() CASCADE;
 DROP PROCEDURE IF EXISTS unbook_room(integer,integer,date,integer,integer,integer) CASCADE;
 DROP FUNCTION IF EXISTS check_delete_meeting() CASCADE;
-DROP PROCEDURE IF EXISTS add_department(integer,text CASCADE);
+DROP PROCEDURE IF EXISTS add_department(integer,text) CASCADE;
 DROP FUNCTION IF EXISTS leave_meeting(integer,date,integer,integer,integer,integer) CASCADE;
 DROP FUNCTION IF EXISTS view_booking_report(date,integer) CASCADE;
 DROP FUNCTION IF EXISTS search_room(integer,date,integer,integer) CASCADE;

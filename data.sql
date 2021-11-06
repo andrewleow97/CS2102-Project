@@ -78,18 +78,29 @@ INSERT INTO MeetingRooms (floor, room, rname, did) VALUES
   (5, 3, 'Room 5-3', 9)
 ;
 
-INSERT INTO Updates (date, new_capacity, floor, room, eid) VALUES
-  (CURRENT_DATE, 10, 1, 1, 24),
-  (CURRENT_DATE, 10, 1, 2, 21), 
-  (CURRENT_DATE, 10, 1, 6, 29), 
-  (CURRENT_DATE, 20, 2, 1, 21),
-  (CURRENT_DATE, 20, 2, 2, 23),
-  (CURRENT_DATE, 20, 2, 7, 25),
-  (CURRENT_DATE, 30, 3, 2, 30), 
-  (CURRENT_DATE, 30, 3, 3, 22),
-  (CURRENT_DATE, 30, 4, 5, 30), 
-  (CURRENT_DATE, 40, 5, 3, 25)
-;
+-- INSERT INTO Updates (date, new_capacity, floor, room, eid) VALUES
+--   (CURRENT_DATE, 10, 1, 1, 24),
+--   (CURRENT_DATE, 10, 1, 2, 21), 
+--   (CURRENT_DATE, 10, 1, 6, 29), 
+--   (CURRENT_DATE, 20, 2, 1, 21),
+--   (CURRENT_DATE, 20, 2, 2, 23),
+--   (CURRENT_DATE, 20, 2, 7, 25),
+--   (CURRENT_DATE, 30, 3, 2, 30), 
+--   (CURRENT_DATE, 30, 3, 3, 22),
+--   (CURRENT_DATE, 30, 4, 5, 30), 
+--   (CURRENT_DATE, 40, 5, 3, 25)
+-- ;
+
+UPDATE UPDATES SET eid = 24 WHERE date = CURRENT_DATE AND floor = 1 and room = 1;
+UPDATE UPDATES SET eid = 21 WHERE date = CURRENT_DATE AND floor = 1 and room = 2;
+UPDATE UPDATES SET eid = 29 WHERE date = CURRENT_DATE AND floor = 1 and room = 6;
+UPDATE UPDATES SET eid = 21 WHERE date = CURRENT_DATE AND floor = 2 and room = 1;
+UPDATE UPDATES SET eid = 23 WHERE date = CURRENT_DATE AND floor = 2 and room = 2;
+UPDATE UPDATES SET eid = 25 WHERE date = CURRENT_DATE AND floor = 2 and room = 7;
+UPDATE UPDATES SET eid = 30 WHERE date = CURRENT_DATE AND floor = 3 and room = 2;
+UPDATE UPDATES SET eid = 22 WHERE date = CURRENT_DATE AND floor = 3 and room = 3;
+UPDATE UPDATES SET eid = 30 WHERE date = CURRENT_DATE AND floor = 4 and room = 5;
+UPDATE UPDATES SET eid = 25 WHERE date = CURRENT_DATE AND floor = 5 and room = 3;
 
 INSERT INTO HealthDeclaration (eid, date, temperature, fever) VALUES 
   (1, CURRENT_DATE, 36.7, 'false'),

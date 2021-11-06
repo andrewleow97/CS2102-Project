@@ -86,7 +86,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS auto_add_updates ON MeetingRooms;
 CREATE TRIGGER auto_add_updates AFTER INSERT ON MeetingRooms
-FOR EACH ROW EXECUTE FUNCTION auto_update_capacity;
+FOR EACH ROW EXECUTE FUNCTION auto_update_capacity();
 
 -- Change Meeting Room Capacity
 CREATE OR REPLACE PROCEDURE change_capacity (floor_num INTEGER, room_num INTEGER, room_capacity INTEGER, new_date DATE, manager_id INTEGER)

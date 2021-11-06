@@ -1,4 +1,6 @@
 -- DATA SQL to load data into application database
+-- will throw errors because of trying to insert duplicate data since we want to account for schema.sql > proc.sql > data.sql
+-- and schema.sql > data.sql and proc.sql. However, this is working as intended and all data will be present.
 
 TRUNCATE Departments, Employees, Junior, Booker, Senior, Manager,
          MeetingRooms, Sessions, Joins, HealthDeclaration, Updates;
@@ -52,6 +54,10 @@ INSERT INTO Employees (eid, did, ename, email, mobile_phone, home_phone, office_
   (30, 6, 'Wscon', 'Wscon30@gmail.com', '94629056', '63617133', '67025443', null)
 ;
 
+INSERT INTO Junior (eid) VALUES 
+  (1), (2), (3), (4), (5), (6), (7), (8), (9), (10)
+;
+
 INSERT INTO Booker (eid) VALUES 
   (11), (12), (13), (14), (15), (16), (17), (18), (19), (20),
   (21), (22), (23), (24), (25), (26), (27), (28), (29), (30)
@@ -78,18 +84,18 @@ INSERT INTO MeetingRooms (floor, room, rname, did) VALUES
   (5, 3, 'Room 5-3', 9)
 ;
 
--- INSERT INTO Updates (date, new_capacity, floor, room, eid) VALUES
---   (CURRENT_DATE, 10, 1, 1, 24),
---   (CURRENT_DATE, 10, 1, 2, 21), 
---   (CURRENT_DATE, 10, 1, 6, 29), 
---   (CURRENT_DATE, 20, 2, 1, 21),
---   (CURRENT_DATE, 20, 2, 2, 23),
---   (CURRENT_DATE, 20, 2, 7, 25),
---   (CURRENT_DATE, 30, 3, 2, 30), 
---   (CURRENT_DATE, 30, 3, 3, 22),
---   (CURRENT_DATE, 30, 4, 5, 30), 
---   (CURRENT_DATE, 40, 5, 3, 25)
--- ;
+INSERT INTO Updates (date, new_capacity, floor, room, eid) VALUES
+  (CURRENT_DATE, 10, 1, 1, 24),
+  (CURRENT_DATE, 10, 1, 2, 21), 
+  (CURRENT_DATE, 10, 1, 6, 29), 
+  (CURRENT_DATE, 20, 2, 1, 21),
+  (CURRENT_DATE, 20, 2, 2, 23),
+  (CURRENT_DATE, 20, 2, 7, 25),
+  (CURRENT_DATE, 30, 3, 2, 30), 
+  (CURRENT_DATE, 30, 3, 3, 22),
+  (CURRENT_DATE, 30, 4, 5, 30), 
+  (CURRENT_DATE, 40, 5, 3, 25)
+;
 
 UPDATE UPDATES SET eid = 24 WHERE date = CURRENT_DATE AND floor = 1 and room = 1;
 UPDATE UPDATES SET eid = 21 WHERE date = CURRENT_DATE AND floor = 1 and room = 2;
@@ -148,7 +154,19 @@ INSERT INTO Sessions (date, time, floor, room, booker_id, approver_id) VALUES
   (CURRENT_DATE + 9, 10, 3, 3, 15, null)
 ;
 
--- Booker must join the session (enforced by trigger)
+INSERT INTO JOINS (eid, date, time, floor, room) VALUES
+  (11, CURRENT_DATE + 1, 18, 1, 1),
+  (21, CURRENT_DATE + 2, 13, 2, 1),
+  (15, CURRENT_DATE + 3, 16, 3, 2),
+  (23, CURRENT_DATE + 3, 19, 1, 1),
+  (24, CURRENT_DATE + 4, 17, 1, 6),
+  (12, CURRENT_DATE + 5, 8, 1, 1),
+  (23, CURRENT_DATE + 6, 9, 5, 3),
+  (18, CURRENT_DATE + 7, 14, 3, 3),
+  (11, CURRENT_DATE + 8, 11, 2, 2),
+  (15, CURRENT_DATE + 9, 10, 3, 3)
+;
+
 INSERT INTO Joins (eid, date, time, floor, room) VALUES 
   (6, CURRENT_DATE + 2, 13, 2, 1),
   (8, CURRENT_DATE + 2, 13, 2, 1),

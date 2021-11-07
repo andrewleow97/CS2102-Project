@@ -45,6 +45,8 @@ DROP FUNCTION IF EXISTS auto_add_updates() CASCADE;
 -- Basic Functions
 
 -- Add Department
+-- did:     department id of department to be added
+-- dname:   name of the department to be added
 CREATE OR REPLACE PROCEDURE add_department (did INTEGER, dname TEXT)
 AS $$
 BEGIN
@@ -53,6 +55,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Remove Department (assume employees no longer belong to this department)
+-- department_id: id of the department to remove
 CREATE OR REPLACE PROCEDURE remove_department (department_id INTEGER)
 AS $$
 BEGIN
@@ -61,6 +64,14 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Add Meeting Room
+-- 1. if manager department id does not match the department id of the room to be added, room will not be added
+-- 2. add capacity of the new room added specified by room_capacity
+-- floor_num:       floor of the meeting room
+-- room_num:        room number of the meeting room
+-- rname:           name of the meeting room
+-- did:             department id of the meeting room
+-- room_capacity:   capacity of the meeting room to add into Updates
+-- manager_id:      manager id to add the capacity in Updates
 CREATE OR REPLACE PROCEDURE add_room (floor_num INTEGER, room_num INTEGER, rname TEXT, did INTEGER, room_capacity INTEGER, manager_id INTEGER)
 AS $$
 DECLARE man_did INTEGER;
@@ -89,6 +100,12 @@ CREATE TRIGGER auto_add_updates AFTER INSERT ON MeetingRooms
 FOR EACH ROW EXECUTE FUNCTION auto_update_capacity();
 
 -- Change Meeting Room Capacity
+-- 1. employee that is not manager and not same department id as the meeting room cannot change the capacity
+-- floor_num:       floor number of the meeting room
+-- room_num:        room number of the meeting room
+-- room_capacity:   new capacity of the meeting room
+-- new_date:        the date at which the new capacity should take effect from
+-- manager_id:      employee id of the manager making the capacity change
 CREATE OR REPLACE PROCEDURE change_capacity (floor_num INTEGER, room_num INTEGER, room_capacity INTEGER, new_date DATE, manager_id INTEGER)
 AS $$
 DECLARE man_did INTEGER;
@@ -154,6 +171,13 @@ CREATE TRIGGER remove_meetings_exceeding AFTER INSERT OR UPDATE ON Updates
 FOR EACH ROW EXECUTE FUNCTION remove_meetings(); 
 
 -- Add Employee
+-- 1. employee id and email will be automatically generated
+-- did:             department id of the employee to be added
+-- ename:           name of the employee
+-- home_phone:      home phone number of the employee
+-- mobile_phone:    mobile phone number of the employee
+-- office_phone:    office phone number of the employee
+-- designation:     'junior', 'senior' or 'manager'
 CREATE OR REPLACE PROCEDURE add_employee (did INTEGER, ename TEXT, home_phone INTEGER, mobile_phone INTEGER, office_phone INTEGER, designation TEXT)
 AS $$
 DECLARE new_eid INTEGER := 0;
@@ -273,7 +297,7 @@ DROP TRIGGER IF EXISTS junior_not_in_booker ON Junior;
 CREATE TRIGGER junior_not_in_booker BEFORE INSERT ON Junior 
 FOR EACH ROW EXECUTE FUNCTION junior_not_booker();
 
------ Check new Booker employee is not a Junior
+----- Remove from Junior and add to Booker
 CREATE OR REPLACE FUNCTION booker_not_junior() 
 RETURNS TRIGGER AS $$
 BEGIN
@@ -319,6 +343,8 @@ CREATE TRIGGER manager_not_in_senior BEFORE INSERT ON Manager
 FOR EACH ROW EXECUTE FUNCTION manager_not_senior();
 
 -- Remove Employee (only set resigned date, don't remove record)
+-- emp_id:  employee id of the employee who resigned
+-- date:    date of the resignation (past/present)
 CREATE OR REPLACE PROCEDURE remove_employee (emp_id INTEGER, date DATE)
 AS $$
 BEGIN
@@ -350,6 +376,7 @@ CREATE TRIGGER resigned_in_past BEFORE INSERT OR UPDATE ON Employees
 FOR EACH ROW EXECUTE FUNCTION resigned_past_date();
 
 ---- Check UPDATE ON EMPLOYEES -------
+-- prevent update of employee id, name and email
 CREATE OR REPLACE FUNCTION prevent_eid_email_name_update() 
 RETURNS TRIGGER AS $$
 BEGIN
@@ -399,6 +426,10 @@ $$ LANGUAGE plpgsql;
 
 -- Search Room
 -- 1.The table should be sorted in ascending order of capacity.
+-- search_capacity: minimum capacity of the meeting room
+-- session_date:    date of the meeting session
+-- start_hour:      start hour of the meeting session
+-- end_hour:        end hour of the meeting session (exclusive)
 CREATE OR REPLACE FUNCTION search_room(search_capacity INT, session_date DATE, start_hour INT, end_hour INT)
 RETURNS TABLE(floor_number INT, room_number INT, department_id INT, room_capacity INT) AS $$
 BEGIN
@@ -415,12 +446,19 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
--- Book Room
+-- Book meeting room from start_hour to end_hour (exclusive)
+-- 1. Only a manger or senior can book the meeting session
+-- floor_number:    floor number of the meeting room
+-- room_number:     room number of the meeting room
+-- session_date:    date of the meeting session
+-- start_hour:      start hour of the meeting session
+-- end_hour:        end hour of the meeting session (exclusive)
+-- booker_id:       id of the employee making the booking
 CREATE OR REPLACE PROCEDURE book_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, booker_id INT)
 AS $$
 BEGIN
     FOR counter IN start_hour..(end_hour-1) LOOP
-        INSERT INTO Sessions VALUES (session_date, counter, room_number, floor_number, booker_id, NULL);
+        INSERT INTO Sessions VALUES (session_date, counter, floor_number, room_number, booker_id, NULL);
     END LOOP;
 END
 $$ LANGUAGE plpgsql;
@@ -455,7 +493,7 @@ DROP TRIGGER IF EXISTS check_insert_booking ON Sessions;
 CREATE TRIGGER check_insert_booking BEFORE INSERT ON Sessions
 FOR EACH ROW EXECUTE FUNCTION check_insert_booking();
 
--- 4. The employee booking the room immediately joins the booked meeting.
+-- 1. The employee booking the room immediately joins the booked meeting.
 CREATE OR REPLACE FUNCTION booker_joins_meeting()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -470,6 +508,13 @@ FOR EACH ROW EXECUTE FUNCTION booker_joins_meeting();
 
 -- Room
 -- 1. If this is not the employee doing the booking, the employee is not allowed to remove booking
+-- floor_number:    floor number of the booked meeting room
+-- room_number:     room number of the booked meeting room
+-- session_date:    date of the meeting session
+-- start_hour:      start hour of the meeting session
+-- end_hour:        end hour of the meeting session (exclusive)
+-- unbooker_id:     id of the employee to remove the meeting session
+
 CREATE OR REPLACE PROCEDURE unbook_room(floor_number INT, room_number INT, session_date DATE, start_hour INT, end_hour INT, unbooker_id INT)
 AS $$
 DECLARE booker_id INTEGER;
@@ -509,6 +554,9 @@ CREATE TRIGGER check_delete_meeting BEFORE DELETE ON Sessions
 FOR EACH ROW EXECUTE FUNCTION check_delete_meeting();
 
 -- Add Health Declaration for an Employee
+-- emp_id:          id of the employee making the declaration
+-- date:            date of the declaration (should be the current date)
+-- temperature:     temperature of the employee
 CREATE OR REPLACE PROCEDURE declare_health (emp_id INTEGER, date DATE, temperature NUMERIC)
 AS $$
 BEGIN
@@ -536,6 +584,8 @@ CREATE TRIGGER check_for_fever_health_declaration BEFORE INSERT OR UPDATE ON Hea
 FOR EACH ROW EXECUTE FUNCTION check_for_fever();
 
 -- Contact Tracing for an Employee
+-- emp_id:      id of the employee to trace
+-- curr_date:   date to start the contact tracing
 CREATE OR REPLACE FUNCTION contact_tracing (emp_id INTEGER, curr_date DATE)
 RETURNS TABLE(close_contacts_eid INTEGER)
 AS $$
@@ -672,6 +722,12 @@ CREATE TRIGGER employee_joining BEFORE INSERT ON Joins
 FOR EACH ROW EXECUTE FUNCTION check_join_meeting();
 
 -- Join Meeting
+-- eid:             id of the employee joining the meeting session
+-- meeting_date:    date of the meeting session
+-- start_hour:      start hour of the meeting session
+-- end_hour:        end hour of the meeting session (exclusive)
+-- floor:           floor number of the meeting room
+-- room:            room number of the meeting room
 CREATE OR REPLACE FUNCTION join_meeting (eid INT, meeting_date DATE, start_hour INT, end_hour INT, floor INT, room INT)
 RETURNS VOID AS $$
 DECLARE 
@@ -728,7 +784,13 @@ DROP TRIGGER IF EXISTS employee_leaving ON Joins;
 CREATE TRIGGER employee_leaving BEFORE DELETE ON Joins
 FOR EACH ROW EXECUTE FUNCTION check_leave_meeting();
 
---Leave Meeting
+-- Leave Meeting
+-- employee_id:     id of the employee leaving the meeting session
+-- meeting_date:    date of the meeting session
+-- start_hour:      start hour of the meeting session
+-- end_hour:        end hour of the meeting session (exclusive)
+-- floor_num:       floor number of the meeting room
+-- room_num:        room number of the meeting room
 CREATE OR REPLACE FUNCTION leave_meeting (employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT)
 RETURNS VOID AS $$
 DECLARE
@@ -799,6 +861,13 @@ FOR EACH ROW EXECUTE FUNCTION check_approve_meeting();
 
 -- Approve Meeting
 -- 1. Only manager from the same department can approve/reject a meeting
+-- employee_id:     id of the manager making the approval
+-- meeting_date:    date of the meeting session
+-- start_hour:      start hour of the meeting session
+-- end_hour:        end hour of the meeting session (exclusive)
+-- floor_num:       loor number of the meeting room
+-- room_num:        room number of the meeting room
+-- status:          'f' to disapprove, otherwise approve
 CREATE OR REPLACE FUNCTION approve_meeting (employee_id INT, meeting_date DATE, start_hour INT, end_hour INT, floor_num INT, room_num INT, status CHAR(1))
 RETURNS VOID AS $$
 DECLARE 
@@ -839,7 +908,8 @@ $$ LANGUAGE plpgsql;
 -- Admin Functions
 
 -- Non-Compliance
-
+-- start_date:  start date to check (inclusive)
+-- end_date:    end date to check (inclusive)
 CREATE OR REPLACE FUNCTION non_compliance(start_date DATE, end_date DATE)
 RETURNS TABLE(employee_id INTEGER, number_of_days INTEGER) AS $$
 DECLARE curr_date DATE := start_date;
@@ -874,6 +944,9 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- View Booking Report
+-- 1. Employee must be a senior/manager
+-- start_date:  date which booking report should show from (inclusive)
+-- emp_id:      id of the employee to check
 CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, emp_id INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, approved BOOLEAN) AS $$
 BEGIN
@@ -890,6 +963,8 @@ $$ LANGUAGE plpgsql;
 
 
 -- View Future Meetings
+-- start_date:  date which meeting sessions should show from (inclusive)
+-- emp_id:      id of the employee to check
 CREATE OR REPLACE FUNCTION view_future_meeting(start_date DATE, emp_id INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER) AS $$
 BEGIN
@@ -915,6 +990,8 @@ $$ LANGUAGE plpgsql;
 -- 2. Returns a table containing all meeting that are booked but not yet approved from the given start date onwards.
 -- 3. Return all meeting in the room with the same department as the manager
 -- 4. The table should be sorted in ascending order of date and start hour.
+-- start_date:      date which the report should show from (inclusive)
+-- manager_id:      id of the manager to check the approvals for
 CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, manager_id INTEGER)
 RETURNS TABLE(floor INTEGER, room INTEGER, date DATE, start_hour INTEGER, employee_id INTEGER) AS $$
 BEGIN
